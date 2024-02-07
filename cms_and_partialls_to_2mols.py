@@ -12,7 +12,7 @@ import sys
 import math
 
 script = "cms_and_partialls_to_2mols.py"
-version = "0.1.0"
+version = "0.1.1"
 
 # Given information on a LS's cell, return its variable in a CNF:
 def cnf_var_num(ls_order : int, ls_index : int, row_index : int, \
@@ -147,7 +147,9 @@ cms_num = 0
 cnf_num = 0
 cla_num = 0
 max_digits_cms_num = int(math.log10(len(cms_lst))) + 1
+print('max_digits_cms_num : ' + str(max_digits_cms_num))
 max_digits_pls_num = int(math.log10(len(partial_squares))) + 1
+print('max_digits_pls_num : ' + str(max_digits_pls_num))
 for cms in cms_lst:
   clauses_cms = gen_cms_clauses(ls_order, cms)
   pls_num = 0
@@ -158,7 +160,7 @@ for cms in cms_lst:
       cms_num_str = '0'*(max_digits_cms_num - len(cms_num_str)) + cms_num_str
     pls_num_str = str(pls_num)
     if len(pls_num_str) < max_digits_pls_num:
-      max_digits_pls_num = '0'*(max_digits_pls_num - len(pls_num_str)) + pls_num_str
+      pls_num_str = '0'*(max_digits_pls_num - len(pls_num_str)) + pls_num_str
     new_cnf_name = cnf_file_name.replace('.cnf','') + '_cms=' + cms_num_str +\
       '_filling=' + pls_num_str + '.cnf'
     with open(new_cnf_name, 'w') as cnf:
