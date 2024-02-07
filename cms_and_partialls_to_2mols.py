@@ -13,13 +13,17 @@
 import sys
 
 script = "cms_and_partialls_to_2mols.py"
-version = "0.0.1"
+version = "0.0.2"
 
 # Given information on a LS's cell, return its variable in a CNF:
 def cnf_var_num(ls_order : int, ls_index : int, row_index : int, \
                 col_index : int, cell_val : int):
 	return ls_index*pow(ls_order,3) + row_index*pow(ls_order,2) + \
     col_index*ls_order + cell_val + 1
+
+print('Script ' + script + ' of version ' + version + ' is running')
+if sys.argv[1] == '-v':
+	exit(1)
 
 if len(sys.argv) < 5:
 	print('Usage : cnf cms-file patial-ls-file ls-order')
