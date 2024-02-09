@@ -10,7 +10,7 @@ import sys
 import os
 
 script = "collect_mols_from_sat.py"
-version = "0.0.1"
+version = "0.0.2"
 
 def ls_from_sat(ls_sol : list, ls_order : int):
 	assert(len(ls_sol) > 0)
@@ -35,12 +35,31 @@ def ls_from_sat(ls_sol : list, ls_order : int):
 	assert(len(ls) == ls_order * ls_order)
 	return ls
 
+def merge_assign_lines(lines : list):
+	for i in range(len(lines) - 1):
+		if len(lines[i]) < 1 or len(lines[i+1]) < 1:
+			continue
+		# If i-th string is not the last line with a solution,
+		#   and (i+1)-th string does not start with 'v', merge them
+		if lines[i][0] == 'v' and (len(lines[i]) == 1 or lines[i][-2:] != ' 0')\
+			and lines[i+1][0] != 'v':
+			lines[i] += lines[i+1]
+			lines[i+1] = ''
+	return lines
+
+def ascending_order(literals : list):
+	vars = [abs(int(l)) for l in literals]
+	assert(0 not in vars)
+	return vars == sorted(vars)
+
 def parse_sat_assignments(fname : str):
 	is_started_sol = False
 	sat_assignments = []
 	cur_assignment = []
 	with open(fname, 'r') as ifile:
 		lines = ifile.read().splitlines()
+		# Process divided lines with sat assignments:
+		lines = merge_assign_lines(lines)
 		for line in lines:
 			if len(line) < 2:
 				continue
@@ -49,8 +68,8 @@ def parse_sat_assignments(fname : str):
 				cur_assignment = []
 				continue
 			if is_started_sol:
-				print(fname)
-				print(line)
+				#print(fname)
+				#print(line)
 				assert(line[:2] == 'v ')
 				# If the last line of a solution is found, stop reading:
 				if line[-2:] == ' 0':
@@ -62,6 +81,7 @@ def parse_sat_assignments(fname : str):
 				line = line[1:]
 				# Read literals
 				literals = line.split()
+				assert(ascending_order(literals))
 				assert(len(literals) > 0)
 				cur_assignment += literals
 	return sat_assignments
@@ -104,15 +124,19 @@ for fname in res_filenames:
 
 print(str(len(mols_lst)) + ' mols in total')
 
+esodls_str = set()
+for mols in mols_lst:
+	s = ''
+	for val in mols[0]:
+		s += str(val)
+	esodls_str.add(s)
+
+print(str(len(esodls_str)) + ' esodls in total')
+
 # Go back to the current directory:
 os.chdir(cur_dir)
-esodls_fname = 'esodls_n' + str(ls_order)
+esodls_fname = 'esodls_n' + str(ls_order) + '.txt'
 print('Writing to file ' + esodls_fname)
 with open(esodls_fname, 'w') as ofile:
-	for mols in mols_lst:
-		for i in range(ls_order):
-			for j in range(ls_order):
-				s = str(mols[0][i*ls_order + j]) + ' '
-				ofile.write(s)
-			ofile.write('\n')
-		ofile.write('\n')
+	for ls_str in esodls_str:
+		ofile.write(ls_str + '\r\n')
