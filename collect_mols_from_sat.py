@@ -10,7 +10,7 @@ import sys
 import os
 
 script = "collect_mols_from_sat.py"
-version = "0.0.2"
+version = "0.0.3"
 
 def ls_from_sat(ls_sol : list, ls_order : int):
 	assert(len(ls_sol) > 0)
@@ -49,10 +49,9 @@ def merge_assign_lines(lines : list):
 
 def ascending_order(literals : list):
 	vars = [abs(int(l)) for l in literals]
-	assert(0 not in vars)
 	return vars == sorted(vars)
 
-def parse_sat_assignments(fname : str):
+def parse_sat_assignments(fname : str, ls_order : int):
 	is_started_sol = False
 	sat_assignments = []
 	cur_assignment = []
@@ -71,19 +70,23 @@ def parse_sat_assignments(fname : str):
 				#print(fname)
 				#print(line)
 				assert(line[:2] == 'v ')
-				# If the last line of a solution is found, stop reading:
-				if line[-2:] == ' 0':
-					is_started_sol = False
-					sat_assignments.append(cur_assignment)
-					# Cut '0' at the end:
-					line = line[:-1]
 				# Cut 'v' at the beginning:
 				line = line[1:]
 				# Read literals
 				literals = line.split()
-				assert(ascending_order(literals))
+				assert(ascending_order(literals) or literals[-1] == '0')
 				assert(len(literals) > 0)
 				cur_assignment += literals
+				# If the last line of a solution is found, stop reading:
+				if literals[-1] == '0':
+					is_started_sol = False
+					# Cut 0 at the end:
+					assert(cur_assignment[-1] == '0')
+					cur_assignment = cur_assignment[:-1]
+					# The number of variables must be 3*N^3:
+					#print(str(len(cur_assignment)))
+					assert(len(cur_assignment) == 3*pow(ls_order, 3))
+					sat_assignments.append(cur_assignment)
 	return sat_assignments
 
 ### Main function:
@@ -111,8 +114,13 @@ print(str(len(res_filenames)) + ' files with SAT solver results are found')
 
 one_ls_var_num = pow(ls_order, 3)
 mols_lst = []
+k = 0
 for fname in res_filenames:
-	sat_assignments = parse_sat_assignments(fname)
+	if k % 100 == 0 and k > 0:
+		print(str(k) + ' files out of ' + str(len(res_filenames)) + ' are processed')
+	print(fname)
+	sat_assignments = parse_sat_assignments(fname, ls_order)
+	k += 1
 	if len(sat_assignments) == 0:
 		continue
 	for assign in sat_assignments:
@@ -130,6 +138,10 @@ for mols in mols_lst:
 	for val in mols[0]:
 		s += str(val)
 	esodls_str.add(s)
+	#s = ''
+	#for val in mols[1]:
+	#	s += str(val)
+	#esodls_str.add(s)
 
 print(str(len(esodls_str)) + ' esodls in total')
 
