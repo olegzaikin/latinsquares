@@ -9,7 +9,7 @@
 // all solutions via a SAT solver.
 //
 // Example:
-//   ./solve_sat_cms cryptominisat5 ./problem.cnf cms.txt part_ls.txt
+//   ./solve_sat_cms cryptominisat5 ./problem.cnf cms.txt part_ls.txt -cpunum=2
 //=============================================================================
 
 #include <iostream>
@@ -28,7 +28,7 @@
 #include <omp.h>
 
 std::string program = "solve_sat_cms";
-std::string version = "0.0.1";
+std::string version = "0.0.2";
 
 #define time_point_t std::chrono::time_point<std::chrono::system_clock>
 #define cms_t std::vector<std::vector<unsigned>>
@@ -87,6 +87,7 @@ std::vector<partial_ls_t> read_partial_ls(const std::string partial_ls_file_name
 unsigned cnf_var_num(const unsigned ls_order, const unsigned ls_index,
                      const unsigned row_index, const unsigned col_index,
 										 const unsigned cell_val);
+std::string str_after_prefix(const std::string str, const std::string prefix);
 std::vector<std::string> find_all_mols(const std::string solver_name,
 																			 const CNF cnf,
 																			 workunit &wu,
@@ -97,12 +98,14 @@ std::string first_ls_from_sat(const std::vector<int> sat_assignment,
 															const unsigned ls_order);
 
 void print_usage() {
-	std::cout << "Usage : ./" << program << " solver CNF CMS partial-LS"
+	std::cout << "Usage : ./" << program << " solver CNF CMS partial-LS [Options]"
 	  	<< std::endl;
-	std::cout << " solver     : SAT solver" << std::endl;
-  std::cout << " CNF        : file with CNF that encodes 2MOLS" << std::endl;
-  std::cout << " CMS        : file with list of CMSs" << std::endl;
-  std::cout << " partial-LS : file with list of partial LSs" << std::endl;
+	std::cout << " solver     	  : SAT solver" << std::endl;
+  std::cout << " CNF        	  : file with CNF that encodes 2MOLS" << std::endl;
+  std::cout << " CMS        	  : file with list of CMSs" << std::endl;
+  std::cout << " partial-LS 	  : file with list of partial LSs" << std::endl;
+	std::cout << "    Options" << std::endl;
+	std::cout << "    -cpunum=<int> : (default = all cores) CPU cores" << std::endl;
 }
 
 void print_version() {
@@ -133,15 +136,28 @@ int main(const int argc, const char *argv[]) {
 	std::string cnf_file_name        = str_argv[2];
 	std::string cms_file_name        = str_argv[3];
 	std::string partial_ls_file_name = str_argv[4];
-
 	std::cout << "solver_name          : " << solver_name   << std::endl;
 	std::cout << "cnf_file_name        : " << cnf_file_name << std::endl;
 	std::cout << "cms_file_name        : " << cms_file_name << std::endl;
 	std::cout << "partial_ls_file_name : " << partial_ls_file_name << std::endl;
 
-	const unsigned nthreads = std::thread::hardware_concurrency();
-	std::cout << "threads       : " << nthreads << std::endl;
-	omp_set_num_threads(nthreads);
+	unsigned cpu_num = 0;
+	if (str_argv.size() > 5) {
+		for (unsigned i=5; i < str_argv.size(); ++i) {
+				std::string s = str_after_prefix(str_argv[i], "-cpunum=");
+				if (s != "") std::istringstream(s) >> cpu_num;
+		}
+	}
+	std::cout << "cpu_num              : " << cpu_num << std::endl;
+
+	// If no CPU num is given, use all threads:
+	if (!cpu_num) {
+		cpu_num = std::thread::hardware_concurrency();
+		std::cout << cpu_num << " CPU cores are detected" << std::endl;
+	}
+
+	omp_set_num_threads(cpu_num);
+	std::cout << cpu_num << " threads are used" << std::endl;
 
 	// Read a CNF and print its statistics:
 	CNF cnf(cnf_file_name);
@@ -225,6 +241,14 @@ int main(const int argc, const char *argv[]) {
 	esodls_file.close();
 
 	return 0;
+}
+
+// Find substring after a given prefix:
+std::string str_after_prefix(const std::string str, const std::string prefix) {
+    size_t pos = str.find( prefix );
+    if ( pos != std::string::npos )
+			return str.substr( pos + prefix.length() );
+    return "";
 }
 
 // Given information on a LS's cell, return its variable in a CNF:
