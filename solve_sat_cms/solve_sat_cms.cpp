@@ -28,7 +28,7 @@
 #include <omp.h>
 
 std::string program = "solve_sat_cms";
-std::string version = "0.0.2";
+std::string version = "0.0.3";
 
 #define time_point_t std::chrono::time_point<std::chrono::system_clock>
 #define cms_t std::vector<std::vector<unsigned>>
@@ -334,6 +334,9 @@ std::vector<std::string> find_all_mols(const std::string solver_name,
 	std::string solver_params = "";
 	if (solver_name.find("cryptominisat") != std::string::npos) {
 		solver_params = "--maxsol 1000000";
+	}
+	else if (solver_name.find("picosat") != std::string::npos) {
+		solver_params = "--all";
 	}
 
 	// Construct an output file name and create it by opening:
