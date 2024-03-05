@@ -222,8 +222,10 @@ int main(const int argc, const char *argv[]) {
 		std::vector<std::string> wu_first_lss = find_all_mols(solver_name, cnf, wu, program_start);
 		for (auto &ls : wu_first_lss) all_first_lss.insert(ls);
 		solved_wus++;
-		std::cout << solved_wus << " workunits out of " << wu_arr.size()
-		          << " are solved" << std::endl;
+		if (ls_order > 8 or solved_wus % 1000 == 0) {
+			std::cout << solved_wus << " workunits out of " << wu_arr.size()
+								<< " are solved" << std::endl;
+		}
 	}
 	std::cout << all_first_lss.size() << " MOLS were found" << std::endl;
 
@@ -231,6 +233,22 @@ int main(const int argc, const char *argv[]) {
 	std::cout << "Elapsed : "
 	<< std::chrono::duration_cast<std::chrono::seconds>(program_end - program_start).count()
 	<< " seconds" << std::endl;
+
+	size_t pos = solver_name.find("/");
+	std::string base_solver_name = solver_name.substr(pos+1, solver_name.size() - pos);
+	std::string log_file_name = "log_" + base_solver_name + "_n" + std::to_string(ls_order);
+	std::cout << "Writing log to file " << log_file_name << std::endl;
+	std::ofstream log_file(log_file_name, std::ios_base::out);
+	log_file << "Input parameters:" << std::endl;
+	for (auto &str : str_argv) log_file << str << std::endl;
+	log_file << std::endl;
+	log_file << solved_wus << " workunits out of " << wu_arr.size()
+								<< " are solved" << std::endl;
+	log_file << all_first_lss.size() << " MOLS were found" << std::endl;
+	log_file << "Elapsed : "
+	<< std::chrono::duration_cast<std::chrono::seconds>(program_end - program_start).count()
+	<< " seconds" << std::endl;
+	log_file.close();
 
 	std::string esodls_file_name = "esodls_n" + std::to_string(ls_order) + ".txt";
 	std::ofstream esodls_file(esodls_file_name, std::ios_base::out);
@@ -331,12 +349,29 @@ std::vector<std::string> find_all_mols(const std::string solver_name,
 	ofile.close();
 
 	// Find all satisfying assignments of the formed CNF via a SAT solver:
+	std::string mod_solver_name = solver_name;
 	std::string solver_params = "";
 	if (solver_name.find("cryptominisat") != std::string::npos) {
 		solver_params = "--maxsol 1000000";
 	}
 	else if (solver_name.find("picosat") != std::string::npos) {
 		solver_params = "--all";
+	}
+	// Clasp with default enumeration settings:
+	else if (solver_name.find("clasp") != std::string::npos) {
+		  std::size_t first = solver_name.find("-");
+      std::size_t last = solver_name.find_last_of("-");
+			if (first == std::string::npos or last == std::string::npos) {
+				solver_params = "--configuration=auto --enum-mode=auto --models=0";
+			}
+			else {
+				std::string clasp_config_str = solver_name.substr(first+1, last-first-1);
+      	std::string clasp_enum_str = solver_name.substr(last+1, solver_name.size()-last-1);
+				// Cut the solver name to get an executable clasp name:
+				mod_solver_name = solver_name.substr(0, first);
+				solver_params = "--configuration=" + clasp_config_str +
+					" --enum-mode=" + clasp_enum_str + " --models=0";
+			}
 	}
 
 	// Construct an output file name and create it by opening:
@@ -346,7 +381,7 @@ std::vector<std::string> find_all_mols(const std::string solver_name,
 	std::fstream local_out_file;
 	local_out_file.open(local_out_file_name, std::ios_base::out);
 
-	std::string system_str = solver_name + " " + solver_params + " " +
+	std::string system_str = mod_solver_name + " " + solver_params + " " +
 		cur_cnf_name + " > " + local_out_file_name;
 	std::string res_str = exec(system_str);
 
@@ -401,13 +436,16 @@ std::vector<std::vector<int>> parse_sat_assignments(
 	std::string line;
 	while (getline(output_file, line)) {
 		if (line.size() < 2) continue;
-		if (line.find("s SATISFIABLE") != std::string::npos) {
+		if ( (line.find("s SATISFIABLE") != std::string::npos) or
+		     (line.find("c Answer: ") != std::string::npos) )
+		{
 				is_started_sol = true;
 				cur_assignment.clear();
 				continue;
 		}
 		if (is_started_sol) {
-				assert(line[0] == 'v' and line[1] == ' ');
+				// If clasp solver, no solution after after 's SATISFIABLE':
+				if (line[0] != 'v' or line[1] != ' ') continue;
 				// Cut 'v' at the beginning:
 				line.erase(line.begin());
 				// Read literals
