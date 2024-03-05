@@ -28,7 +28,7 @@
 #include <omp.h>
 
 std::string program = "solve_sat_cms";
-std::string version = "0.0.3";
+std::string version = "0.0.4";
 
 #define time_point_t std::chrono::time_point<std::chrono::system_clock>
 #define cms_t std::vector<std::vector<unsigned>>
