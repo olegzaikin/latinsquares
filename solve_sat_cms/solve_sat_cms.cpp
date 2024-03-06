@@ -28,7 +28,7 @@
 #include <omp.h>
 
 std::string program = "solve_sat_cms";
-std::string version = "0.0.4";
+std::string version = "0.0.5";
 
 #define time_point_t std::chrono::time_point<std::chrono::system_clock>
 #define cms_t std::vector<std::vector<unsigned>>
@@ -398,6 +398,8 @@ std::vector<std::string> find_all_mols(const std::string solver_name,
 
 	std::vector<std::string> first_ls_arr;
 	for (auto &s_a : sat_assignments) {
+		// Typicaly there are N^3 variables, but clasp can produce less:
+		if (s_a.size() != 3*pow(ls_order,3)) continue;
 		first_ls_arr.push_back(first_ls_from_sat(s_a, ls_order));
 	}
 
@@ -460,7 +462,7 @@ std::vector<std::vector<int>> parse_sat_assignments(
 					// Cut '0' at the end:
 					cur_assignment.pop_back();
 					// Check that there are N^3 variables:
-					assert(cur_assignment.size() == 3*pow(ls_order,3));
+					//assert(cur_assignment.size() == 3*pow(ls_order,3));
 					// Add the assignment to the list:
 					all_assignments.push_back(cur_assignment);
 				}
