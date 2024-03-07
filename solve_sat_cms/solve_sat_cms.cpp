@@ -9,7 +9,7 @@
 // all solutions via a SAT solver.
 //
 // Example:
-//   ./solve_sat_cms cryptominisat5 ./problem.cnf cms.txt part_ls.txt -cpunum=2
+//   ./solve_sat_cms cryptominisat5 p.cnf cms.txt partls.txt --allsat -cpunum=2
 //=============================================================================
 
 #include <iostream>
@@ -28,7 +28,7 @@
 #include <omp.h>
 
 std::string program = "solve_sat_cms";
-std::string version = "0.0.5";
+std::string version = "0.0.6";
 
 #define time_point_t std::chrono::time_point<std::chrono::system_clock>
 #define cms_t std::vector<std::vector<unsigned>>
@@ -82,13 +82,15 @@ struct CNF {
 
 std::string exec(const std::string cmd_str);
 std::vector<cms_t> read_cms(const std::string cms_file_name);
-std::vector<partial_ls_t> read_partial_ls(const std::string partial_ls_file_name,
+std::vector<partial_ls_t> read_partial_ls(
+	const std::string partial_ls_file_name,
   const unsigned ls_order);
 unsigned cnf_var_num(const unsigned ls_order, const unsigned ls_index,
                      const unsigned row_index, const unsigned col_index,
 										 const unsigned cell_val);
 std::string str_after_prefix(const std::string str, const std::string prefix);
-std::vector<std::string> find_all_mols(const std::string solver_name,
+std::vector<std::string> find_all_mols(std::string solver_name,
+																			 const bool isAllSATsolver,
 																			 const CNF cnf,
 																			 workunit &wu,
 																			 const time_point_t program_start);
@@ -96,16 +98,20 @@ std::vector<std::vector<int>> parse_sat_assignments(
 	const std::string output_file_name, const unsigned ls_order);
 std::string first_ls_from_sat(const std::vector<int> sat_assignment,
 															const unsigned ls_order);
+void run_solver(std::string solver_name, const bool isAllSATsolver,
+								const std::string cur_cnf_name,
+								const std::string local_out_file_name);
 
 void print_usage() {
-	std::cout << "Usage : ./" << program << " solver CNF CMS partial-LS [Options]"
-	  	<< std::endl;
-	std::cout << " solver     	  : SAT solver" << std::endl;
-  std::cout << " CNF        	  : file with CNF that encodes 2MOLS" << std::endl;
-  std::cout << " CMS        	  : file with list of CMSs" << std::endl;
-  std::cout << " partial-LS 	  : file with list of partial LSs" << std::endl;
-	std::cout << "    Options" << std::endl;
-	std::cout << "    -cpunum=<int> : (default = all cores) CPU cores" << std::endl;
+	std::cout << "Usage : ./" << program
+						<< " solver CNF CMS partial-LS [Options]\n";
+	std::cout << " solver     	  : SAT solver\n";
+  std::cout << " CNF        	  : file with CNF that encodes 2MOLS\n";
+  std::cout << " CMS        	  : file with list of CMSs\n";
+  std::cout << " partial-LS 	  : file with list of partial LSs\n";
+	std::cout << "    Options\n";
+	std::cout << "    -cpunum=<int> : (default = all cores) CPU cores\n";
+	std::cout << "    --allsat      : whether an AllSAT solver is given\n"; 
 }
 
 void print_version() {
@@ -142,13 +148,16 @@ int main(const int argc, const char *argv[]) {
 	std::cout << "partial_ls_file_name : " << partial_ls_file_name << std::endl;
 
 	unsigned cpu_num = 0;
+	bool isAllSATsolver = false;
 	if (str_argv.size() > 5) {
 		for (unsigned i=5; i < str_argv.size(); ++i) {
 				std::string s = str_after_prefix(str_argv[i], "-cpunum=");
 				if (s != "") std::istringstream(s) >> cpu_num;
+				if (str_argv[i] == "--allsat") isAllSATsolver = true;
 		}
 	}
 	std::cout << "cpu_num              : " << cpu_num << std::endl;
+	std::cout << "isAllSATsolver       : " << isAllSATsolver << std::endl;
 
 	// If no CPU num is given, use all threads:
 	if (!cpu_num) {
@@ -219,15 +228,16 @@ int main(const int argc, const char *argv[]) {
 	// Process all workunits in parallel:
 	#pragma omp parallel for schedule(dynamic, 1)
 	for (auto &wu : wu_arr) {
-		std::vector<std::string> wu_first_lss = find_all_mols(solver_name, cnf, wu, program_start);
+		std::vector<std::string> wu_first_lss = 
+			find_all_mols(solver_name, isAllSATsolver, cnf, wu, program_start);
 		for (auto &ls : wu_first_lss) all_first_lss.insert(ls);
 		solved_wus++;
 		if (ls_order > 8 or solved_wus % 1000 == 0) {
 			std::cout << solved_wus << " workunits out of " << wu_arr.size()
-								<< " are solved" << std::endl;
+								<< " are solved\n";
 		}
 	}
-	std::cout << all_first_lss.size() << " MOLS were found" << std::endl;
+	std::cout << all_first_lss.size() << " MOLS were found\n";
 
 	const time_point_t program_end = std::chrono::system_clock::now();
 	std::cout << "Elapsed : "
@@ -278,8 +288,54 @@ unsigned cnf_var_num(const unsigned ls_order, const unsigned ls_index,
 		+ col_index*ls_order + cell_val + 1;
 }
 
+// Run a SAT or AllSAT solver:
+void run_solver(std::string solver_name,
+								const bool isAllSATsolver,
+                const std::string cur_cnf_name,
+								const std::string local_out_file_name)
+{
+	// Find all satisfying assignments of the formed CNF via a SAT solver:
+	std::string solver_params = "";
+
+	// Parse clasp's parameters:
+	if (solver_name.find("clasp") != std::string::npos) {
+		std::string clasp_config_str = "auto";
+		std::string clasp_enum_str = "auto";
+		std::size_t first = solver_name.find("-");
+		std::size_t last = solver_name.find_last_of("-");
+		if (first != std::string::npos and last != std::string::npos) {
+			clasp_config_str = solver_name.substr(first+1, last-first-1);
+			clasp_enum_str = solver_name.substr(last+1, solver_name.size()-last-1);
+			// Cut the solver name to get an executable clasp name:
+			solver_name = solver_name.substr(0, first);
+		}
+		solver_params = "--configuration=" + clasp_config_str +
+				" --enum-mode=" + clasp_enum_str;
+	}
+
+	// If a known AllSAT solver is given, enable its enumeration mode:
+	if (isAllSATsolver) {
+		if (solver_name.find("cryptominisat") != std::string::npos) {
+			solver_params = "--maxsol 1000000";
+		}
+		else if (solver_name.find("picosat") != std::string::npos) {
+			solver_params = "--all";
+		}
+		// Clasp with default enumeration settings:
+		else if (solver_name.find("clasp") != std::string::npos) {
+				solver_params += " --models=0";
+		}
+	}
+
+	std::string system_str = solver_name + " " + solver_params + " " +
+		cur_cnf_name + " > " + local_out_file_name;
+	std::cout << system_str << std::endl;
+	std::string res_str = exec(system_str);
+}
+
 // Find all MOLS in a CNF with added CMS- and partial-LS-constraints:
-std::vector<std::string> find_all_mols(const std::string solver_name,
+std::vector<std::string> find_all_mols(std::string solver_name,
+																			 const bool isAllSATsolver,
 																			 const CNF cnf,
 																			 workunit &wu,
 																			 const time_point_t program_start)
@@ -348,32 +404,6 @@ std::vector<std::string> find_all_mols(const std::string solver_name,
 	}
 	ofile.close();
 
-	// Find all satisfying assignments of the formed CNF via a SAT solver:
-	std::string mod_solver_name = solver_name;
-	std::string solver_params = "";
-	if (solver_name.find("cryptominisat") != std::string::npos) {
-		solver_params = "--maxsol 1000000";
-	}
-	else if (solver_name.find("picosat") != std::string::npos) {
-		solver_params = "--all";
-	}
-	// Clasp with default enumeration settings:
-	else if (solver_name.find("clasp") != std::string::npos) {
-		  std::size_t first = solver_name.find("-");
-      std::size_t last = solver_name.find_last_of("-");
-			if (first == std::string::npos or last == std::string::npos) {
-				solver_params = "--configuration=auto --enum-mode=auto --models=0";
-			}
-			else {
-				std::string clasp_config_str = solver_name.substr(first+1, last-first-1);
-      	std::string clasp_enum_str = solver_name.substr(last+1, solver_name.size()-last-1);
-				// Cut the solver name to get an executable clasp name:
-				mod_solver_name = solver_name.substr(0, first);
-				solver_params = "--configuration=" + clasp_config_str +
-					" --enum-mode=" + clasp_enum_str + " --models=0";
-			}
-	}
-
 	// Construct an output file name and create it by opening:
 	std::string local_out_file_name = "./out_cms" +
 		std::to_string(wu.cms_index) + "_" + "partial-ls" + 
@@ -381,18 +411,17 @@ std::vector<std::string> find_all_mols(const std::string solver_name,
 	std::fstream local_out_file;
 	local_out_file.open(local_out_file_name, std::ios_base::out);
 
-	std::string system_str = mod_solver_name + " " + solver_params + " " +
-		cur_cnf_name + " > " + local_out_file_name;
-	std::string res_str = exec(system_str);
+	// Run a SAT all AllSAT solver:
+	run_solver(solver_name, isAllSATsolver, cur_cnf_name, local_out_file_name);
 
 	std::vector<std::vector<int>> sat_assignments = 
 		parse_sat_assignments(local_out_file_name, ls_order);
 
 	// Remove the formed CNF:
-	system_str = "rm " + cur_cnf_name;
-	res_str = exec(system_str);
+	std::string system_str = "rm " + cur_cnf_name;
+	std::string res_str = exec(system_str);
 
-	// Remove the outpuf file:
+	// Remove the output file:
 	system_str = "rm " + local_out_file_name;
 	res_str = exec(system_str);
 
