@@ -28,7 +28,7 @@
 #include <omp.h>
 
 std::string program = "solve_sat_cms";
-std::string version = "0.1.0";
+std::string version = "0.1.1";
 
 #define time_point_t std::chrono::time_point<std::chrono::system_clock>
 #define cms_t std::vector<std::vector<unsigned>>
@@ -102,6 +102,7 @@ std::string first_ls_from_sat(const std::vector<int> sat_assignment,
 void enumerate_by_sat_solver(const std::string solver_name,
 														 const std::string cur_cnf_name,
 														 const unsigned ls_order,
+														 const std::vector<int> partial_ls_literals,
 														 const std::string local_out_file_name);
 void enumerate_by_allsat_solver(std::string solver_name,
 														    const std::string cur_cnf_name,
@@ -332,7 +333,7 @@ void enumerate_by_allsat_solver(std::string solver_name,
 	// Run the solver:
 	std::string system_str = solver_name + " " + solver_params + " " +
 	cur_cnf_name + " > " + local_out_file_name;
-	std::cout << system_str << std::endl;
+	//std::cout << system_str << std::endl;
 	std::string res_str = exec(system_str);
 }
 
@@ -340,13 +341,14 @@ void enumerate_by_allsat_solver(std::string solver_name,
 void enumerate_by_sat_solver(const std::string solver_name,
 														 const std::string cur_cnf_name,
 														 const unsigned ls_order,
+														 const std::vector<int> partial_ls_literals,
 														 const std::string local_out_file_name)
 {
 	CNF cnf(cur_cnf_name);
 	std::vector<std::vector<int>> all_sat_assignments; 
 	bool UNSAT = false;
 	std::vector<std::string> blocking_clauses;
-	std::cout << solver_name << " on CNF " << cur_cnf_name << std::endl;
+	//std::cout << solver_name << " on CNF " << cur_cnf_name << std::endl;
 	// Run the SAT solver, add the blocking clause, and run again:
 	while (not UNSAT) {
 		std::string system_str = solver_name + " " + cur_cnf_name;
@@ -364,9 +366,15 @@ void enumerate_by_sat_solver(const std::string solver_name,
 			// Form the blocking clause:
 			std::string blocking_clause;
 			for (auto &lit : sat_assignments[0]) {
-				blocking_clause += std::to_string(-lit) + " ";
+				//blocking_clause += std::to_string(-lit) + " "; // all literals
+				//if (lit > 0 and lit <= (int)pow(ls_order, 3))  // positive first-ls literals
+				// positive first-ls literals which are not in partial ls:
+				if (lit > 0 and lit <= (int)pow(ls_order, 3) and 
+					std::find(partial_ls_literals.begin(), partial_ls_literals.end(), lit) == partial_ls_literals.end())
+					blocking_clause += std::to_string(-lit) + " "; 
 			}
 			blocking_clause += "0";
+			//std::cout << blocking_clause << std::endl;
 			assert(blocking_clause.size() > 0);
 			blocking_clauses.push_back(blocking_clause);
 			// Write the CNF from the scratch:
@@ -438,6 +446,7 @@ std::vector<std::string> find_all_mols(std::string solver_name,
 	assert(clauses_cms.size() == pow(ls_order,3)*2);
 
 	// Partial-LS constraints for the first LS:
+	std::vector<int> partial_ls_literals;
 	std::vector<std::string> clauses_partial_ls;
 	for (unsigned i=0; i < ls_order; ++i) {
 		for (unsigned j=0; j < ls_order; ++j) {
@@ -447,6 +456,7 @@ std::vector<std::string> find_all_mols(std::string solver_name,
 			std::istringstream(val_str) >> val_uint;
 			unsigned var = cnf_var_num(ls_order, 0, i, j, val_uint);
 			clauses_partial_ls.push_back(std::to_string(var) + " 0");
+			partial_ls_literals.push_back(var);
 		}
 	}
 
@@ -476,17 +486,27 @@ std::vector<std::string> find_all_mols(std::string solver_name,
 	std::fstream local_out_file;
 	local_out_file.open(local_out_file_name, std::ios_base::out);
 
+	const time_point_t t1 = std::chrono::system_clock::now();
+	
 	// Run an AllSAT solver once or a SAT solver iteratively:
 	if (isAllSATsolver) {
 		enumerate_by_allsat_solver(solver_name, cur_cnf_name, local_out_file_name);
 	}
 	else {
 		enumerate_by_sat_solver(solver_name, cur_cnf_name, ls_order, 
-			local_out_file_name);
+			partial_ls_literals, local_out_file_name);
 	}
 
 	std::vector<std::vector<int>> sat_assignments = 
 		parse_sat_assignments(local_out_file_name, true, ls_order);
+
+	if (sat_assignments.size() > 0) {
+		const time_point_t t2 = std::chrono::system_clock::now();
+		//std::cout << solver_name << " on CNF " << cur_cnf_name <<
+		std::cout << cur_cnf_name << " SAT : "
+		<< std::chrono::duration_cast<std::chrono::seconds>(t2 - t1).count()
+		<< " seconds" << std::endl;
+	}
 
 	// Remove the formed CNF:
 	std::string system_str = "rm " + cur_cnf_name;
