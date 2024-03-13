@@ -28,7 +28,7 @@
 #include <omp.h>
 
 std::string program = "solve_sat_cms";
-std::string version = "0.0.6";
+std::string version = "0.1.0";
 
 #define time_point_t std::chrono::time_point<std::chrono::system_clock>
 #define cms_t std::vector<std::vector<unsigned>>
@@ -95,12 +95,17 @@ std::vector<std::string> find_all_mols(std::string solver_name,
 																			 workunit &wu,
 																			 const time_point_t program_start);
 std::vector<std::vector<int>> parse_sat_assignments(
-	const std::string output_file_name, const unsigned ls_order);
+	const std::string output_str, const bool is_file_output,
+	const unsigned ls_order);
 std::string first_ls_from_sat(const std::vector<int> sat_assignment,
 															const unsigned ls_order);
-void run_solver(std::string solver_name, const bool isAllSATsolver,
-								const std::string cur_cnf_name,
-								const std::string local_out_file_name);
+void enumerate_by_sat_solver(const std::string solver_name,
+														 const std::string cur_cnf_name,
+														 const unsigned ls_order,
+														 const std::string local_out_file_name);
+void enumerate_by_allsat_solver(std::string solver_name,
+														    const std::string cur_cnf_name,
+														    const std::string local_out_file_name);							 
 
 void print_usage() {
 	std::cout << "Usage : ./" << program
@@ -288,11 +293,10 @@ unsigned cnf_var_num(const unsigned ls_order, const unsigned ls_index,
 		+ col_index*ls_order + cell_val + 1;
 }
 
-// Run a SAT or AllSAT solver:
-void run_solver(std::string solver_name,
-								const bool isAllSATsolver,
-                const std::string cur_cnf_name,
-								const std::string local_out_file_name)
+// Enumerate all solutions by an AllSAT solver and write them to a file:
+void enumerate_by_allsat_solver(std::string solver_name,
+															  const std::string cur_cnf_name,
+															  const std::string local_out_file_name)
 {
 	// Find all satisfying assignments of the formed CNF via a SAT solver:
 	std::string solver_params = "";
@@ -313,24 +317,85 @@ void run_solver(std::string solver_name,
 				" --enum-mode=" + clasp_enum_str;
 	}
 
-	// If a known AllSAT solver is given, enable its enumeration mode:
-	if (isAllSATsolver) {
-		if (solver_name.find("cryptominisat") != std::string::npos) {
-			solver_params = "--maxsol 1000000";
+	// Enable the solver's enumeration mode:
+	if (solver_name.find("cryptominisat") != std::string::npos) {
+		solver_params = "--maxsol 10000000";
+	}
+	else if (solver_name.find("picosat") != std::string::npos) {
+		solver_params = "--all";
+	}
+	// Clasp with default enumeration settings:
+	else if (solver_name.find("clasp") != std::string::npos) {
+			solver_params += " --models=0";
+	}
+
+	// Run the solver:
+	std::string system_str = solver_name + " " + solver_params + " " +
+	cur_cnf_name + " > " + local_out_file_name;
+	std::cout << system_str << std::endl;
+	std::string res_str = exec(system_str);
+}
+
+// Enumerate all solutions by a SAT solver and write them to a file:
+void enumerate_by_sat_solver(const std::string solver_name,
+														 const std::string cur_cnf_name,
+														 const unsigned ls_order,
+														 const std::string local_out_file_name)
+{
+	CNF cnf(cur_cnf_name);
+	std::vector<std::vector<int>> all_sat_assignments; 
+	bool UNSAT = false;
+	std::vector<std::string> blocking_clauses;
+	std::cout << solver_name << " on CNF " << cur_cnf_name << std::endl;
+	// Run the SAT solver, add the blocking clause, and run again:
+	while (not UNSAT) {
+		std::string system_str = solver_name + " " + cur_cnf_name;
+		//std::cout << system_str << std::endl;
+		std::string solver_output_str = exec(system_str);
+		assert(solver_output_str.size() > 0);
+		std::vector<std::vector<int>> sat_assignments = 
+			parse_sat_assignments(solver_output_str, false, ls_order);
+		assert(sat_assignments.size() <= 1);
+		if (sat_assignments.size() == 0 ) { 
+			UNSAT = true;
 		}
-		else if (solver_name.find("picosat") != std::string::npos) {
-			solver_params = "--all";
-		}
-		// Clasp with default enumeration settings:
-		else if (solver_name.find("clasp") != std::string::npos) {
-				solver_params += " --models=0";
+		else {
+			all_sat_assignments.push_back(sat_assignments[0]);
+			// Form the blocking clause:
+			std::string blocking_clause;
+			for (auto &lit : sat_assignments[0]) {
+				blocking_clause += std::to_string(-lit) + " ";
+			}
+			blocking_clause += "0";
+			assert(blocking_clause.size() > 0);
+			blocking_clauses.push_back(blocking_clause);
+			// Write the CNF from the scratch:
+			std::ofstream cur_cnf_file(cur_cnf_name, std::ios_base::out);
+			cur_cnf_file << "p cnf " << cnf.var_num << " "
+				           << cnf.clause_num + blocking_clauses.size() << std::endl;
+			for (auto &c : cnf.clauses) cur_cnf_file << c << std::endl;
+			// Add all blocking clauses formed so far:
+			for (auto &c : blocking_clauses) cur_cnf_file << c << std::endl;
+			cur_cnf_file.close();
 		}
 	}
 
-	std::string system_str = solver_name + " " + solver_params + " " +
-		cur_cnf_name + " > " + local_out_file_name;
-	std::cout << system_str << std::endl;
-	std::string res_str = exec(system_str);
+	// Write all solutions to a file:
+	std::ofstream local_out_file(local_out_file_name, std::ios_base::out);
+	if (all_sat_assignments.size() > 0) {
+		for (auto &s_a : all_sat_assignments) {
+			local_out_file << "s SATISFIABLE\n";
+			local_out_file << "v ";
+			for (auto &lit : s_a) {
+				local_out_file << lit << " ";
+			}
+			local_out_file << "0" << std::endl;
+		}
+	}
+	else {
+		local_out_file << "s UNSATISFIABLE\n";
+	}
+	local_out_file.close();
 }
 
 // Find all MOLS in a CNF with added CMS- and partial-LS-constraints:
@@ -411,11 +476,17 @@ std::vector<std::string> find_all_mols(std::string solver_name,
 	std::fstream local_out_file;
 	local_out_file.open(local_out_file_name, std::ios_base::out);
 
-	// Run a SAT all AllSAT solver:
-	run_solver(solver_name, isAllSATsolver, cur_cnf_name, local_out_file_name);
+	// Run an AllSAT solver once or a SAT solver iteratively:
+	if (isAllSATsolver) {
+		enumerate_by_allsat_solver(solver_name, cur_cnf_name, local_out_file_name);
+	}
+	else {
+		enumerate_by_sat_solver(solver_name, cur_cnf_name, ls_order, 
+			local_out_file_name);
+	}
 
 	std::vector<std::vector<int>> sat_assignments = 
-		parse_sat_assignments(local_out_file_name, ls_order);
+		parse_sat_assignments(local_out_file_name, true, ls_order);
 
 	// Remove the formed CNF:
 	std::string system_str = "rm " + cur_cnf_name;
@@ -454,18 +525,43 @@ std::string exec(const std::string cmd_str) {
 	return result;
 }
 
-// Parse satysfying assignments from a solver's output file:
+// Parse satysfying assignments from a solver's output:
 std::vector<std::vector<int>> parse_sat_assignments(
-	const std::string output_file_name,
+	const std::string output_str,
+	const bool is_file_output,
 	const unsigned ls_order
 	)
 {
+	std::vector<std::string> lines;
+	std::string line;
+
+	// If an output file's name is given:
+	if (is_file_output) {
+		std::ifstream output_file(output_str, std::ios_base::in);
+		while (getline(output_file, line)) {
+			lines.push_back(line);
+		}
+		output_file.close();
+	}
+	// If an output string is given:
+	else {
+		if (output_str.find("\n") == std::string::npos) {
+			lines.push_back(output_str);
+		}
+		else {
+			std::stringstream sstream(output_str);
+			while(std::getline(sstream, line,'\n')) lines.push_back(line);
+		}
+	}
+
+	assert(lines.size() > 0);
+
 	bool is_started_sol = false;
 	std::vector<std::vector<int>> all_assignments;
 	std::vector<int> cur_assignment;
-	std::ifstream output_file(output_file_name, std::ios_base::in);
-	std::string line;
-	while (getline(output_file, line)) {
+
+	// Process all lines:
+	for (auto &line : lines) {
 		if (line.size() < 2) continue;
 		if ( (line.find("s SATISFIABLE") != std::string::npos) or
 		     (line.find("c Answer: ") != std::string::npos) )
@@ -498,7 +594,6 @@ std::vector<std::vector<int>> parse_sat_assignments(
 		}
 	}
 
-	output_file.close();
 	return all_assignments;
 }
 
