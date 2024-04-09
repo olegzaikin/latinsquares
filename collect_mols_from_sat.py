@@ -10,7 +10,7 @@ import sys
 import os
 
 script = "collect_mols_from_sat.py"
-version = "0.0.3"
+version = "0.0.4"
 
 def ls_from_sat(ls_sol : list, ls_order : int):
 	assert(len(ls_sol) > 0)
@@ -62,14 +62,14 @@ def parse_sat_assignments(fname : str, ls_order : int):
 		for line in lines:
 			if len(line) < 2:
 				continue
-			if 's SATISFIABLE' in line:
+			if 's SATISFIABLE' in line or 'c Answer: ' in line:
 				is_started_sol = True
 				cur_assignment = []
 				continue
 			if is_started_sol:
-				#print(fname)
-				#print(line)
-				assert(line[:2] == 'v ')
+				# If clasp solver, no solution after after 's SATISFIABLE':
+				if line[0] != 'v' or line[1] != ' ':
+					continue
 				# Cut 'v' at the beginning:
 				line = line[1:]
 				# Read literals
@@ -108,7 +108,7 @@ cur_dir = os.getcwd()
 os.chdir(path)
 res_filenames = []
 for f in os.listdir(path):
-    if f.endswith(".out"):
+    if f.startswith("out_"):
         res_filenames.append(f)
 print(str(len(res_filenames)) + ' files with SAT solver results are found')
 
