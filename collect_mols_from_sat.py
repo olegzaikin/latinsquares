@@ -10,7 +10,7 @@ import sys
 import os
 
 script = "collect_mols_from_sat.py"
-version = "0.0.4"
+version = "0.0.5"
 
 def ls_from_sat(ls_sol : list, ls_order : int):
 	assert(len(ls_sol) > 0)
@@ -143,6 +143,8 @@ for mols in mols_lst:
 	#	s += str(val)
 	#esodls_str.add(s)
 
+sorted_esodls_str = sorted(esodls_str)
+
 print(str(len(esodls_str)) + ' esodls in total')
 
 # Go back to the current directory:
@@ -150,5 +152,5 @@ os.chdir(cur_dir)
 esodls_fname = 'esodls_n' + str(ls_order) + '.txt'
 print('Writing to file ' + esodls_fname)
 with open(esodls_fname, 'w') as ofile:
-	for ls_str in esodls_str:
+	for ls_str in sorted_esodls_str:
 		ofile.write(ls_str + '\r\n')
