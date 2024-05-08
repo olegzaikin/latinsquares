@@ -10,7 +10,7 @@ import sys
 import os
 
 script = "collect_mols_from_sat.py"
-version = "0.0.5"
+version = "0.0.6"
 
 def ls_from_sat(ls_sol : list, ls_order : int):
 	assert(len(ls_sol) > 0)
@@ -107,9 +107,13 @@ print('path     : ' + path)
 cur_dir = os.getcwd()
 os.chdir(path)
 res_filenames = []
-for f in os.listdir(path):
-    if f.startswith("out_"):
-        res_filenames.append(f)
+for dirpath,_,filenames in os.walk(path):
+	for f in filenames:
+		if f.startswith("!sat_out"):
+			res_filenames.append(os.path.abspath(os.path.join(dirpath, f)))
+#for f in os.listdir(path):
+    #if f.startswith("!sat_out"):
+        #res_filenames.append(f)
 print(str(len(res_filenames)) + ' files with SAT solver results are found')
 
 one_ls_var_num = pow(ls_order, 3)
@@ -118,7 +122,7 @@ k = 0
 for fname in res_filenames:
 	if k % 100 == 0 and k > 0:
 		print(str(k) + ' files out of ' + str(len(res_filenames)) + ' are processed')
-	print(fname)
+	#print(fname)
 	sat_assignments = parse_sat_assignments(fname, ls_order)
 	k += 1
 	if len(sat_assignments) == 0:
