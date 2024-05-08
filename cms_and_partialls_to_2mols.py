@@ -12,7 +12,7 @@ import sys
 import math
 
 script = "cms_and_partialls_to_2mols.py"
-version = "0.1.1"
+version = "0.1.2"
 
 # Given information on a LS's cell, return its variable in a CNF:
 def cnf_var_num(ls_order : int, ls_index : int, row_index : int, \
@@ -57,12 +57,16 @@ if len(sys.argv) < 5:
 	print('  cnf             : a CNF that encodes MOLS for 2 Latin squares')
 	print('  cms-file        : a file with a CMS')
 	print('  partial-ls-file : file with partil Latin squares')
+	print('  skip-cms        : how many CMS to skip')
 	exit(1)
 
 ls_order = int(sys.argv[1])
 cnf_file_name = sys.argv[2]
 cms_file_name = sys.argv[3]
 partial_ls_file_name = sys.argv[4]
+skip_cms_num = 0
+if len(sys.argv) > 5:
+  skip_cms_num = int(sys.argv[5])
 
 assert(ls_order > 0)
 assert(cnf_file_name != '')
@@ -73,6 +77,7 @@ print('ls_order             : ' + str(ls_order))
 print('cnf_file_name        : ' + cnf_file_name)
 print('cms_file_name        : ' + cms_file_name)
 print('partial_ls_file_name : ' + partial_ls_file_name)
+print('skip_cms_num         : ' + str(skip_cms_num))
 
 var_num = 0
 clauses = []
@@ -91,6 +96,8 @@ with open(cms_file_name, 'r') as cmsf:
 		if len(cms) == ls_order:
 			cms_lst.append(cms)
 			cms = []
+
+assert(skip_cms_num >= 0 and skip_cms_num < len(cms_lst))
 
 print(str(len(cms_lst)) + ' cms were read')
 print('The first CMS:')
@@ -150,30 +157,35 @@ max_digits_cms_num = int(math.log10(len(cms_lst))) + 1
 print('max_digits_cms_num : ' + str(max_digits_cms_num))
 max_digits_pls_num = int(math.log10(len(partial_squares))) + 1
 print('max_digits_pls_num : ' + str(max_digits_pls_num))
+
 for cms in cms_lst:
-  clauses_cms = gen_cms_clauses(ls_order, cms)
-  pls_num = 0
-  for pls in partial_squares:
-    clauses_partial_ls = gen_partial_ls_clauses(pls)
-    cms_num_str = str(cms_num)
-    if len(cms_num_str) < max_digits_cms_num:
-      cms_num_str = '0'*(max_digits_cms_num - len(cms_num_str)) + cms_num_str
-    pls_num_str = str(pls_num)
-    if len(pls_num_str) < max_digits_pls_num:
-      pls_num_str = '0'*(max_digits_pls_num - len(pls_num_str)) + pls_num_str
-    new_cnf_name = cnf_file_name.replace('.cnf','') + '_cms=' + cms_num_str +\
-      '_filling=' + pls_num_str + '.cnf'
-    with open(new_cnf_name, 'w') as cnf:
-      cla_num = len(clauses) + len(clauses_cms) + len(clauses_partial_ls)
-      cnf.write('p cnf ' + str(var_num) + ' ' + str(cla_num) + '\n')
-      for clause in clauses:
-        cnf.write(clause)
-      for clause in clauses_cms:
-        cnf.write(clause)
-      for clause in clauses_partial_ls:
-        cnf.write(clause)
-    pls_num += 1
-  cnf_num += pls_num 
+  if cms_num < skip_cms_num:
+      print('skipping CMS ' + str(cms_num))
+  else:
+    clauses_cms = gen_cms_clauses(ls_order, cms)
+    pls_num = 0
+    for pls in partial_squares:
+      clauses_partial_ls = gen_partial_ls_clauses(pls)
+      cms_num_str = str(cms_num)
+      if len(cms_num_str) < max_digits_cms_num:
+        cms_num_str = '0'*(max_digits_cms_num - len(cms_num_str)) + cms_num_str
+      pls_num_str = str(pls_num)
+      if len(pls_num_str) < max_digits_pls_num:
+        pls_num_str = '0'*(max_digits_pls_num - len(pls_num_str)) + pls_num_str
+      new_cnf_name = cnf_file_name.replace('.cnf','') + '_cms=' + cms_num_str +\
+        '_filling=' + pls_num_str + '.cnf'
+      with open(new_cnf_name, 'w') as cnf:
+        cla_num = len(clauses) + len(clauses_cms) + len(clauses_partial_ls)
+        cnf.write('p cnf ' + str(var_num) + ' ' + str(cla_num) + '\n')
+        for clause in clauses:
+          cnf.write(clause)
+        for clause in clauses_cms:
+          cnf.write(clause)
+        for clause in clauses_partial_ls:
+          cnf.write(clause)
+      pls_num += 1
+    cnf_num += pls_num
+  #
   cms_num += 1
 assert(cms_num > 0)
 assert(cnf_num > 0)
