@@ -28,7 +28,7 @@
 #include <omp.h>
 
 std::string program = "solve_sat_cms";
-std::string version = "0.1.1";
+std::string version = "0.1.2";
 
 #define time_point_t std::chrono::time_point<std::chrono::system_clock>
 #define cms_t std::vector<std::vector<unsigned>>
@@ -611,6 +611,21 @@ std::vector<std::vector<int>> parse_sat_assignments(
 					// Add the assignment to the list:
 					all_assignments.push_back(cur_assignment);
 				}
+		}
+		// cadical-allsat's format:
+		if (line.find("c New solution:") != std::string::npos) {
+			// Delete the first 3 words of total length 16:
+			line.erase(0, 16);
+			// Read literals
+			std::stringstream sstream(line);
+			std::vector<int> literals;
+			int ival;
+			assert(cur_assignment.empty());
+			while (sstream >> ival) cur_assignment.push_back(ival);
+			assert(cur_assignment[cur_assignment.size() - 1] == 0);
+			cur_assignment.pop_back();
+			all_assignments.push_back(cur_assignment);
+			cur_assignment.clear();
 		}
 	}
 
