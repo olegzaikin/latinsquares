@@ -28,7 +28,7 @@
 #include <omp.h>
 
 std::string program = "solve_sat_cms";
-std::string version = "0.1.2";
+std::string version = "0.1.3";
 
 #define time_point_t std::chrono::time_point<std::chrono::system_clock>
 #define cms_t std::vector<std::vector<unsigned>>
@@ -309,13 +309,24 @@ void enumerate_by_allsat_solver(std::string solver_name,
 		std::size_t first = solver_name.find("-");
 		std::size_t last = solver_name.find_last_of("-");
 		if (first != std::string::npos and last != std::string::npos) {
-			clasp_config_str = solver_name.substr(first+1, last-first-1);
-			clasp_enum_str = solver_name.substr(last+1, solver_name.size()-last-1);
-			// Cut the solver name to get an executable clasp name:
-			solver_name = solver_name.substr(0, first);
-		}
-		solver_params = "--configuration=" + clasp_config_str +
+			// If both parameters are given:
+		    if (first != last) {
+				clasp_config_str = solver_name.substr(first+1, last-first-1);
+				clasp_enum_str = solver_name.substr(last+1,
+				  solver_name.size()-last-1);
+				// Cut the solver name to get an executable clasp name:
+				solver_name = solver_name.substr(0, first);
+				solver_params = "--configuration=" + clasp_config_str +
 				" --enum-mode=" + clasp_enum_str;
+			}
+			// If only the first parameter is given:
+			else {
+				clasp_config_str = solver_name.substr(first+1, solver_name.size()-first-1);
+				solver_name = solver_name.substr(0, first);
+				solver_params = "--configuration=" + clasp_config_str;
+			}
+		}
+
 	}
 
 	// Enable the solver's enumeration mode:
