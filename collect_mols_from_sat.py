@@ -10,7 +10,7 @@ import sys
 import os
 
 script = "collect_mols_from_sat.py"
-version = "0.0.6"
+version = "0.0.7"
 
 def ls_from_sat(ls_sol : list, ls_order : int):
 	assert(len(ls_sol) > 0)
@@ -109,7 +109,7 @@ os.chdir(path)
 res_filenames = []
 for dirpath,_,filenames in os.walk(path):
 	for f in filenames:
-		if f.startswith("!sat_out"):
+		if f.startswith("!sat_out") or f.startswith("out_cms"):
 			res_filenames.append(os.path.abspath(os.path.join(dirpath, f)))
 #for f in os.listdir(path):
     #if f.startswith("!sat_out"):
