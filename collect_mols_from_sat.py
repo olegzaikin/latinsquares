@@ -10,7 +10,7 @@ import sys
 import os
 
 script = "collect_mols_from_sat.py"
-version = "0.0.7"
+version = "0.0.8"
 
 def ls_from_sat(ls_sol : list, ls_order : int):
 	assert(len(ls_sol) > 0)
@@ -55,13 +55,18 @@ def parse_sat_assignments(fname : str, ls_order : int):
 	is_started_sol = False
 	sat_assignments = []
 	cur_assignment = []
+	cms_indices = []
 	with open(fname, 'r') as ifile:
 		lines = ifile.read().splitlines()
 		# Process divided lines with sat assignments:
 		lines = merge_assign_lines(lines)
+		cms_index = -1
 		for line in lines:
 			if len(line) < 2:
 				continue
+			#c Reading from 2mols_n7_diag_cms=000_filling=0.cnf
+			if 'c Reading from ' in line and '_cms=' in line and '_' in line:
+				cms_index = int(line.split('_cms=')[1].split('_')[0])
 			if 's SATISFIABLE' in line or 'c Answer: ' in line:
 				is_started_sol = True
 				cur_assignment = []
@@ -87,7 +92,20 @@ def parse_sat_assignments(fname : str, ls_order : int):
 					#print(str(len(cur_assignment)))
 					assert(len(cur_assignment) == 3*pow(ls_order, 3))
 					sat_assignments.append(cur_assignment)
-	return sat_assignments
+					if cms_index >= 0:
+						cms_indices.append(cms_index)
+	return sat_assignments, cms_indices
+
+def ls_as_str(ls : list, ls_order : int):
+	res_str = ''
+	for i in range(ls_order):
+		for j in range(ls_order):
+			res_str += str(ls[i*ls_order + j])
+			if j < ls_order-1:
+				res_str += ' '
+		res_str += '\n'
+	res_str += '\n'
+	return res_str
 
 ### Main function:
 print(script + ' of version ' + version + ' is running')
@@ -109,6 +127,7 @@ os.chdir(path)
 res_filenames = []
 for dirpath,_,filenames in os.walk(path):
 	for f in filenames:
+		print(f)
 		if f.startswith("!sat_out") or f.startswith("out_cms"):
 			res_filenames.append(os.path.abspath(os.path.join(dirpath, f)))
 #for f in os.listdir(path):
@@ -119,11 +138,12 @@ print(str(len(res_filenames)) + ' files with SAT solver results are found')
 one_ls_var_num = pow(ls_order, 3)
 mols_lst = []
 k = 0
+cms_indices = []
 for fname in res_filenames:
 	if k % 100 == 0 and k > 0:
 		print(str(k) + ' files out of ' + str(len(res_filenames)) + ' are processed')
 	#print(fname)
-	sat_assignments = parse_sat_assignments(fname, ls_order)
+	sat_assignments, cms_indices = parse_sat_assignments(fname, ls_order)
 	k += 1
 	if len(sat_assignments) == 0:
 		continue
@@ -135,17 +155,50 @@ for fname in res_filenames:
 		mols_lst.append([ls1, ls2])
 
 print(str(len(mols_lst)) + ' mols in total')
+print('cms_indices :')
+print(cms_indices)
 
 esodls_str = set()
-for mols in mols_lst:
+mols_lst_str = ''
+sodls_lst = []
+esodls_not_sodls_lst = []
+for i in range(len(mols_lst)):
 	s = ''
-	for val in mols[0]:
+	for val in mols_lst[i][0]:
 		s += str(val)
 	esodls_str.add(s)
 	#s = ''
 	#for val in mols[1]:
 	#	s += str(val)
 	#esodls_str.add(s)
+	# All pairs of MOLS to string:
+	if ls_order > 7 or len(cms_indices) == 0:
+		continue
+	mols_lst_str += 'cms_index ' + str(cms_indices[i]) + '\n'
+	for mols_ind in range(2):
+		if mols_lst[i][mols_ind] not in mols_lst:
+			mols_lst_str += ls_as_str(mols_lst[i][mols_ind], ls_order)
+	mols_lst_str += '\n'
+	assert(cms_indices[i] > 0)
+	if len(cms_indices) == 0:
+		continue
+	# If cms1, then sodls:
+	if cms_indices[i] == 1:
+		if mols_lst[i][0] not in sodls_lst:
+			sodls_lst.append(mols_lst[i][0])
+
+if len(sodls_lst) > 0:
+	for i in range(len(mols_lst)):
+		if cms_indices[i] > 1 and mols_lst[i][0] not in sodls_lst and mols_lst[i][0] not in esodls_not_sodls_lst:
+			esodls_not_sodls_lst.append(mols_lst[i][0])
+
+sodls_lst_str = ''
+for ls in sodls_lst:
+	sodls_lst_str += ls_as_str(ls, ls_order)
+
+esodls_not_sodls_lst_str = ''
+for ls in esodls_not_sodls_lst:
+	esodls_not_sodls_lst_str += ls_as_str(ls, ls_order)
 
 sorted_esodls_str = sorted(esodls_str)
 
@@ -158,3 +211,17 @@ print('Writing to file ' + esodls_fname)
 with open(esodls_fname, 'w') as ofile:
 	for ls_str in sorted_esodls_str:
 		ofile.write(ls_str + '\r\n')
+
+if ls_order == 7:
+	mols_fname = 'mols_esodls_n' + str(ls_order) + '.txt'
+	print('Writing to file ' + mols_fname)
+	with open(mols_fname, 'w') as ofile:
+		ofile.write(mols_lst_str)
+	mols_fname = 'mols_sodls_n' + str(ls_order) + '.txt'
+	print('Writing to file ' + mols_fname)
+	with open(mols_fname, 'w') as ofile:
+		ofile.write(sodls_lst_str)
+	mols_fname = 'mols_esodls_not_sodls_n' + str(ls_order) + '.txt'
+	print('Writing to file ' + mols_fname)
+	with open(mols_fname, 'w') as ofile:
+		ofile.write(esodls_not_sodls_lst_str)
