@@ -10,7 +10,7 @@ import sys
 import os
 
 script = "collect_mols_from_sat.py"
-version = "0.0.8"
+version = "0.0.9"
 
 def ls_from_sat(ls_sol : list, ls_order : int):
 	assert(len(ls_sol) > 0)
@@ -159,7 +159,7 @@ print('cms_indices :')
 print(cms_indices)
 
 esodls_str = set()
-mols_lst_str = ''
+mols_lst_str_lst = []
 sodls_lst = []
 esodls_not_sodls_lst = []
 for i in range(len(mols_lst)):
@@ -172,14 +172,13 @@ for i in range(len(mols_lst)):
 	#	s += str(val)
 	#esodls_str.add(s)
 	# All pairs of MOLS to string:
-	if ls_order > 7 or len(cms_indices) == 0:
-		continue
-	mols_lst_str += 'cms_index ' + str(cms_indices[i]) + '\n'
+	if len(cms_indices) > i:
+		assert(cms_indices[i] > 0)
+		mols_lst_str_lst.append('cms_index ' + str(cms_indices[i]) + '\n')
 	for mols_ind in range(2):
 		if mols_lst[i][mols_ind] not in mols_lst:
-			mols_lst_str += ls_as_str(mols_lst[i][mols_ind], ls_order)
-	mols_lst_str += '\n'
-	assert(cms_indices[i] > 0)
+			mols_lst_str_lst.append(ls_as_str(mols_lst[i][mols_ind], ls_order))
+	mols_lst_str_lst.append('\n')
 	if len(cms_indices) == 0:
 		continue
 	# If cms1, then sodls:
@@ -191,14 +190,6 @@ if len(sodls_lst) > 0:
 	for i in range(len(mols_lst)):
 		if cms_indices[i] > 1 and mols_lst[i][0] not in sodls_lst and mols_lst[i][0] not in esodls_not_sodls_lst:
 			esodls_not_sodls_lst.append(mols_lst[i][0])
-
-sodls_lst_str = ''
-for ls in sodls_lst:
-	sodls_lst_str += ls_as_str(ls, ls_order)
-
-esodls_not_sodls_lst_str = ''
-for ls in esodls_not_sodls_lst:
-	esodls_not_sodls_lst_str += ls_as_str(ls, ls_order)
 
 sorted_esodls_str = sorted(esodls_str)
 
@@ -212,16 +203,23 @@ with open(esodls_fname, 'w') as ofile:
 	for ls_str in sorted_esodls_str:
 		ofile.write(ls_str + '\r\n')
 
-if ls_order == 7:
+if len(mols_lst_str_lst) > 0:
 	mols_fname = 'mols_esodls_n' + str(ls_order) + '.txt'
 	print('Writing to file ' + mols_fname)
 	with open(mols_fname, 'w') as ofile:
-		ofile.write(mols_lst_str)
+		for s in mols_lst_str_lst:
+			ofile.write(s)
+
+if len(sodls_lst) > 0:
 	mols_fname = 'mols_sodls_n' + str(ls_order) + '.txt'
 	print('Writing to file ' + mols_fname)
 	with open(mols_fname, 'w') as ofile:
-		ofile.write(sodls_lst_str)
+		for ls in sodls_lst:
+			ofile.write(ls_as_str(ls, ls_order))
+
+if len(esodls_not_sodls_lst) > 0:
 	mols_fname = 'mols_esodls_not_sodls_n' + str(ls_order) + '.txt'
 	print('Writing to file ' + mols_fname)
 	with open(mols_fname, 'w') as ofile:
-		ofile.write(esodls_not_sodls_lst_str)
+		for ls in esodls_not_sodls_lst:
+			ofile.write(ls_as_str(ls, ls_order))
