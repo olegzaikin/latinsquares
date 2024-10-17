@@ -1,4 +1,5 @@
 solve_sat_cms
+dlx_mols
 timelimit
 *.o
 *.txt
