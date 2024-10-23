@@ -1,3 +1,14 @@
+// Created on: 23 Oct 2024
+// Author: Oleg Zaikin
+// E-mail: oleg.zaikin@icc.ru
+//
+// For a given order n and a file of ESODLS CMS, generate all ESODLS CMS of
+// order n and compare them with that from the file.
+// 
+// Example:
+//   ./dls_main_class_enumeration 7 ./cms_n7
+//==========================================================================
+
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -15,7 +26,7 @@ using namespace std;
 #define matrix_t vector<row_t>
 
 string prog = "dls_main_class_enumeration";
-string version = "0.0.1";
+string version = "0.0.2";
 
 void print(matrix_t matrix) {
     for (auto &row : matrix) {
@@ -304,6 +315,7 @@ set<matrix_t> tworows_twocols_symm(const matrix_t dls) {
     return tworows_twocols_symm_dls_set;
 }
 
+
 // Swap four rows symmetrically (2 + 2) and four columns with the same indices.
 // There are (floor(n/2))! such variants where n is the order of a given
 // diagonal Latin square.
@@ -335,6 +347,24 @@ set<matrix_t> fourrows_fourcols_symm(const matrix_t dls) {
     } while (std::next_permutation(cur_indices.begin(), cur_indices.end()));
     assert(fourrows_fourcols_symm_dls_set.size() == perm_num);
     return fourrows_fourcols_symm_dls_set;
+}
+
+set<matrix_t> reflect_rotate_symm(const matrix_t cms) {
+    const unsigned n = cms.size();
+    assert(n > 0 and n < 11); 
+    set<matrix_t> cms_set;
+    set<matrix_t> tworows_twocols_symm_cms_set = tworows_twocols_symm(cms);
+    for (auto &two_symm_cms : tworows_twocols_symm_cms_set) {
+        set<matrix_t> fourrows_fourcols_symm_cms_set = fourrows_fourcols_symm(two_symm_cms);
+        for (auto &four_symm_cms : fourrows_fourcols_symm_cms_set) {
+            set<matrix_t> refl_rot_cms_set = reflect_rotate(four_symm_cms);
+            for (auto &refl_rot_cms : refl_rot_cms_set) {
+                assert(is_diag_cms(refl_rot_cms));
+                cms_set.insert(refl_rot_cms);
+            }
+        }
+    }
+    return cms_set;
 }
 
 set<matrix_t> apply_all_cms(matrix_t x_based_partial_dls, set<matrix_t> esodls_cms_set) {
@@ -386,26 +416,13 @@ int main(int argc, char *argv[]) {
 
     //vector<matrix_t> dls_arr = read_dls_string(fname, n);
 
-    //cout << "Trivial CMS :" << endl;
-    //print(trivial_cms);
-    //cout << endl;
+    cout << "Trivial CMS :" << endl;
+    print(trivial_cms);
 
-    set<matrix_t> refl_rot_cms_set = reflect_rotate(trivial_cms);
-    cout << "refl_rot_cms_set size : " << refl_rot_cms_set.size() << endl;
+    //set<matrix_t> refl_rot_cms_set = reflect_rotate(trivial_cms);
+    //cout << "refl_rot_cms_set size : " << refl_rot_cms_set.size() << endl;
 
-    set<matrix_t> esodls_cms_set; 
-    
-    set<matrix_t> tworows_twocols_symm_cms_set = tworows_twocols_symm(trivial_cms);
-    for (auto &two_symm_cms : tworows_twocols_symm_cms_set) {
-        set<matrix_t> fourrows_fourcols_symm_cms_set = fourrows_fourcols_symm(two_symm_cms);
-        for (auto &four_symm_cms : fourrows_fourcols_symm_cms_set) {
-            set<matrix_t> refl_rot_cms_set = reflect_rotate(four_symm_cms);
-            for (auto &refl_rot_cms : refl_rot_cms_set) {
-                assert(is_diag_cms(refl_rot_cms));
-                esodls_cms_set.insert(refl_rot_cms);
-            }
-        }
-    }
+    set<matrix_t> esodls_cms_set = reflect_rotate_symm(trivial_cms); 
     cout << "esodls_cms_set size : " << esodls_cms_set.size() << endl;
 
     set<matrix_t> diff_set;
@@ -414,11 +431,8 @@ int main(int argc, char *argv[]) {
         esodls_cms_set.begin(), esodls_cms_set.end(),
         std::inserter(diff_set, diff_set.end()));
 
-    if (diff_set.empty()) {
-        cout << "CMS set is correct" << endl;
-    } else {
-        cout << "CMS set is incorrect" << endl;
-    }
+    if (diff_set.empty()) cout << "CMS set is correct" << endl;
+    else cout << "CMS set is incorrect" << endl;
 
     //for (auto &x : result_set) print(x);
 
