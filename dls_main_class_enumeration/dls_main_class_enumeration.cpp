@@ -26,7 +26,7 @@ using namespace std;
 #define matrix_t vector<row_t>
 
 string prog = "dls_main_class_enumeration";
-string version = "0.0.2";
+string version = "0.1.0";
 
 void print(matrix_t matrix) {
     for (auto &row : matrix) {
@@ -136,21 +136,26 @@ vector<matrix_t> read_dls_string(const string fname, const unsigned n) {
     return diag_ls_lst;
 }
 
-// Normalize DLS - i.e. make its main diagonal 0, 1, ..., n-1
-matrix_t normilize_dls(const matrix_t dls) {
-    const unsigned n = dls.size();
-    assert(n > 0);
-    matrix_t norm_dls = dls;
-    vector<unsigned> corresp_vec(n, 0);
-    for (unsigned i = 0; i < n; i++) {
-        corresp_vec[dls[i][i]] = i;
-    }
-    for (auto &row : norm_dls) {
+// Normalize matrix (LS or CMS), i.e. make its main diagonal 0, 1, ..., n-1
+matrix_t normalize(const matrix_t mtrx) {
+    const unsigned n = mtrx.size();
+    assert(n > 0 and n < 11);
+    matrix_t norm_mtrx = mtrx;
+    vector<unsigned> norm_perm(n, 0);
+    for (unsigned i = 0; i < n; i++) norm_perm[mtrx[i][i]] = i;
+    for (auto &row : norm_mtrx) {
         for (unsigned i = 0; i < n; i++) {
-            row[i] = corresp_vec[row[i]];
+            if (row[i] == -1) continue;
+            row[i] = norm_perm[row[i]];
         }
     }
-    return norm_dls;
+    //cout << "*" << endl;
+    //print(mtrx);
+    //print(norm_mtrx);
+    for (unsigned i = 0; i < n; i++) {
+        assert(norm_mtrx[i][i] == i);
+    }
+    return norm_mtrx;
 }
 
 void swap_rows(matrix_t &dls, const unsigned i1, const unsigned i2) {
@@ -315,7 +320,6 @@ set<matrix_t> tworows_twocols_symm(const matrix_t dls) {
     return tworows_twocols_symm_dls_set;
 }
 
-
 // Swap four rows symmetrically (2 + 2) and four columns with the same indices.
 // There are (floor(n/2))! such variants where n is the order of a given
 // diagonal Latin square.
@@ -367,27 +371,92 @@ set<matrix_t> reflect_rotate_symm(const matrix_t cms) {
     return cms_set;
 }
 
-set<matrix_t> apply_all_cms(matrix_t x_based_partial_dls, set<matrix_t> esodls_cms_set) {
+vector<matrix_t> generate_x_based_basic_partial_dls(const unsigned n) {
+    assert(n > 0 and n < 11);
+    vector<matrix_t> x_based_basic_partial_dls;
+    vector<unsigned> main_diag;
+    for (unsigned i=0; i<n; i++) main_diag.push_back(i);
+    vector<unsigned> main_antidiag;
+    for (unsigned i=0; i<n; i++) main_antidiag.push_back(i);
+    do {
+        bool is_diag = true;
+        if (n % 2 == 1) {
+            if (main_diag[n/2] != main_antidiag[n/2]) {
+                is_diag = false;
+                continue;
+            }
+            for (unsigned i=0; i<n; i++) {
+                if (i == n/2) continue;
+                if (main_diag[i] == main_antidiag[i] or main_diag[i] == main_antidiag[n-1-i]) {
+                    is_diag = false;
+                    continue;
+                }
+            }
+        }
+        else {
+            for (unsigned i=0; i<n; i++) {
+                if (main_diag[i] == main_antidiag[i] or main_diag[i] == main_antidiag[n-1-i]) {
+                    is_diag = false;
+                    continue;
+                }
+            }
+        }
+        if (is_diag) {
+            matrix_t x_based_partial_dls(n,row_t(n,-1));
+            for (unsigned i=0; i<n; i++) {
+                x_based_partial_dls[i][i] = main_diag[i];
+                x_based_partial_dls[n-1-i][i] = main_antidiag[i];
+            }
+            x_based_basic_partial_dls.push_back(x_based_partial_dls);
+        }
+    } while (std::next_permutation(main_antidiag.begin(), main_antidiag.end()));
+    return x_based_basic_partial_dls;
+}
+
+matrix_t apply_all_cms(matrix_t x_based_partial_dls, set<matrix_t> esodls_cms_set) {
     const unsigned n = x_based_partial_dls.size();
-    assert(n > 0 and n < 11); 
-    set<matrix_t> partial_dls_set;
+    assert(n > 0 and n < 11);
+    matrix_t new_x_based_partial_dls(n, row_t(n,-1));
+    matrix_t norm_new_x_based_partial_dls(n, row_t(n,-1));
+    matrix_t minimal_main_class_repres;
+    vector<short int> minimal_two_diags_rows_by_rows;
+    //cout << "basic x :" << endl;
+    //print(x_based_partial_dls);
     for (auto cms : esodls_cms_set) {
-        matrix_t new_x_based_partial_dls = x_based_partial_dls;
         for (unsigned i=0; i<n; i++) {
             unsigned i2 = cms[i][i] / n;
             unsigned j2 = cms[i][i] % n;
+            assert(i2 == j2 or i2 == n-1-j2 or j2 == n-1-i2);
             new_x_based_partial_dls[i2][j2] = x_based_partial_dls[i][i];
             i2 = cms[n-1-i][i] / n;
             j2 = cms[n-1-i][i] % n;
+            assert(i2 == j2 or i2 == n-1-j2 or j2 == n-1-i2);
             new_x_based_partial_dls[i2][j2] = x_based_partial_dls[n-1-i][i];
         }
-        //print(x_based_partial_dls);
-        //print(cms);
-        //print(new_x_based_partial_dls);
-        break;
-        //partial_dls_set.insert(new_x_based_partial_dls);
+        // Normalize:
+        norm_new_x_based_partial_dls = normalize(new_x_based_partial_dls);
+        // Get the antidiag:
+        vector<short int> two_diags_rows_by_rows(n*2, -1);
+        unsigned k=0;
+        for (unsigned i=0; i<n; i++) {
+            for (unsigned j=0; j<n; j++) {
+                if (norm_new_x_based_partial_dls[i][j] == -1) continue;
+                assert(k < two_diags_rows_by_rows.size());
+                two_diags_rows_by_rows[k++] = norm_new_x_based_partial_dls[i][j];
+            }
+        }
+        two_diags_rows_by_rows.resize(k);
+        //cout << "*" << endl;
+        //print(norm_new_x_based_partial_dls);
+        //for (auto &x : two_diags_rows_by_rows) cout << x << " ";
+        //cout << endl;
+        
+        if (minimal_two_diags_rows_by_rows.empty() or two_diags_rows_by_rows < minimal_two_diags_rows_by_rows) {
+            minimal_main_class_repres = norm_new_x_based_partial_dls;
+            minimal_two_diags_rows_by_rows = two_diags_rows_by_rows;
+        }
     }
-    return partial_dls_set;
+    return minimal_main_class_repres;
 }
 
 int main(int argc, char *argv[]) {
@@ -434,62 +503,49 @@ int main(int argc, char *argv[]) {
     if (diff_set.empty()) cout << "CMS set is correct" << endl;
     else cout << "CMS set is incorrect" << endl;
 
-    //for (auto &x : result_set) print(x);
-
-    /*
-    vector<unsigned> main_diag;
-    for (unsigned i=0; i<n; i++) main_diag.push_back(i);
-    vector<unsigned> main_antidiag;
-    for (unsigned i=0; i<n; i++) main_antidiag.push_back(i);
-    vector<matrix_t> x_based_basic_partial_dls;
-    do {
-        bool is_diag = true;
-        for (unsigned i=0; i<n; i++) {
-            if (main_diag[i] == main_antidiag[i] or main_diag[i] == main_antidiag[n-1-i]) {
-                is_diag = false;
-                break;
-            }
-        }
-        if (is_diag) {
-            matrix_t x_based_partial_dls(n,row_t(n,-1));
-            for (unsigned i=0; i<n; i++) {
-                x_based_partial_dls[i][i] = main_diag[i];
-                x_based_partial_dls[n-1-i][i] = main_antidiag[i];
-            }
-            x_based_basic_partial_dls.push_back(x_based_partial_dls);
-        }
-    } while (std::next_permutation(main_antidiag.begin(), main_antidiag.end()));
+    vector<matrix_t> x_based_basic_partial_dls = generate_x_based_basic_partial_dls(n);
     cout << x_based_basic_partial_dls.size() << " basic X-based fillings" << endl;
 
-    set<matrix_t> normalized_x_based_partial_dls_set;
-
-    for (auto &x_based_partial_dls : x_based_basic_partial_dls) {
-        set<matrix_t> cms_x_based_partial_dls = apply_all_cms(x_based_partial_dls, esodls_cms_set);
-        break;
+    set<matrix_t> main_class_repres_set;
+    unsigned k=0;
+    unsigned max_main_class_repres_set_size = 0;
+    for (auto &x_partial_dls : x_based_basic_partial_dls) {
+        matrix_t main_class_repres = apply_all_cms(x_partial_dls, esodls_cms_set);
+        main_class_repres_set.insert(main_class_repres);
+        if (main_class_repres_set.size() > max_main_class_repres_set_size) {
+            max_main_class_repres_set_size = main_class_repres_set.size();
+            cout << "main_class_repres_set size : " << main_class_repres_set.size() << endl;
+        }
+        k++;
+        if (k % 1000 == 0) cout << k << " processed" << endl;
     }
-    */
 
-    /*
-    for (auto &dls : dls_arr) {
-        vector<matrix_t> reflection_dls_arr = reflect(dls);
-        vector<matrix_t> rotation_dls_arr = rotate(dls);
-        vector<matrix_t> tworows_twocols_symm_dls_arr = tworows_twocols_symm(dls);
-        vector<matrix_t> fourrows_fourcols_symm_dls_arr = fourrows_fourcols_symm(dls);
-        break;
-    }
-    */
+    //for (auto x : main_class_repres_set) {
+    //    print(x);
+    //}
 
-    /*
-    for (auto &dls : dls_arr) {
-        print_dls(dls);
-        cout << endl;
-        cout << "Normalized DLS :" << endl;
-        matrix_t norm_dls = normilize_dls(dls);
-        print_dls(norm_dls);
-        cout << endl;
-        cout << endl;
+    cout << "main_class_repres_set size : " << main_class_repres_set.size() << endl;
+
+    stringstream sstream;
+    sstream << "x_fillings_n" << n << "_new.txt";
+    string x_fname = sstream.str();
+    cout << "Wriring X-based partial fillings to file " << x_fname << endl;
+    ofstream ofile(x_fname, ios_base::out);
+    k = 0;
+    for (auto &x_fill : main_class_repres_set) {
+        ofile << "X-based filling " << k << ":\n";
+        for (unsigned i=0; i < n; i++) {
+            for (unsigned j=0; j < n; j++) {
+                if (x_fill[i][j] == -1) ofile << "-";
+                else ofile << x_fill[i][j];
+                if (j < n-1) ofile << " ";
+            }
+            ofile << "\n";
+        }
+        ofile << "\n";
+        k++;
     }
-    */
+    ofile.close();
 
     return 0;
 }
