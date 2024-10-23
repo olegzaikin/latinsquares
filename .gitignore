@@ -1,5 +1,7 @@
 solve_sat_cms
 !solve_sat_cms/
+dls_main_class_enumeration
+!dls_main_class_enumeration/
 dlx_mols
 !dlx_mols/
 timelimit
