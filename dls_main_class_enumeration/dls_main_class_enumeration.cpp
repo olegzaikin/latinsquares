@@ -26,7 +26,7 @@ using namespace std;
 #define matrix_t vector<row_t>
 
 string prog = "dls_main_class_enumeration";
-string version = "0.1.0";
+string version = "0.1.1";
 
 void print(matrix_t matrix) {
     for (auto &row : matrix) {
@@ -500,14 +500,38 @@ int main(int argc, char *argv[]) {
         esodls_cms_set.begin(), esodls_cms_set.end(),
         std::inserter(diff_set, diff_set.end()));
 
-    if (diff_set.empty()) cout << "CMS set is correct" << endl;
-    else cout << "CMS set is incorrect" << endl;
+    assert(cms_from_file.size() == esodls_cms_set.size() and diff_set.empty());
+
+    cout << "CMS set is correct" << endl;
+
+    stringstream sstream_cms;
+    sstream_cms << "cms_esodls_n" << n << "_new.txt";
+    string out_cms_filename = sstream_cms.str();
+    cout << "Wriring ESODLS CMS to file " << out_cms_filename << endl;
+    ofstream out_cms_file(out_cms_filename, ios_base::out);
+    out_cms_file << "Writing " << esodls_cms_set.size() << " ESODLS CMS of order " << n << endl;
+    unsigned k = 0;
+    for (auto &cms : esodls_cms_set) {
+        out_cms_file << "# " << k << endl;
+        for (auto &row : cms) {
+            for (unsigned j=0; j<row.size(); j++) {
+                assert(row[j] >= 0 and row[j] < n*n);
+                if (row[j] < 10) out_cms_file << " ";
+                out_cms_file << row[j];
+                if (j < row.size() - 1) out_cms_file << " ";
+            }
+            out_cms_file << endl;
+        }
+        out_cms_file << endl;
+        k++;
+    }
+    out_cms_file.close();
 
     vector<matrix_t> x_based_basic_partial_dls = generate_x_based_basic_partial_dls(n);
     cout << x_based_basic_partial_dls.size() << " basic X-based fillings" << endl;
 
     set<matrix_t> main_class_repres_set;
-    unsigned k=0;
+    k=0;
     unsigned max_main_class_repres_set_size = 0;
     for (auto &x_partial_dls : x_based_basic_partial_dls) {
         matrix_t main_class_repres = apply_all_cms(x_partial_dls, esodls_cms_set);
@@ -517,12 +541,8 @@ int main(int argc, char *argv[]) {
             cout << "main_class_repres_set size : " << main_class_repres_set.size() << endl;
         }
         k++;
-        if (k % 1000 == 0) cout << k << " processed" << endl;
+        if (k % 10000 == 0) cout << k << " processed" << endl;
     }
-
-    //for (auto x : main_class_repres_set) {
-    //    print(x);
-    //}
 
     cout << "main_class_repres_set size : " << main_class_repres_set.size() << endl;
 
