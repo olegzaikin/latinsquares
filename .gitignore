@@ -8,3 +8,4 @@ timelimit
 *.o
 *.txt
 *.cnf
+out_*
