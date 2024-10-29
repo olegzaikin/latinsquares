@@ -22,7 +22,7 @@
 using namespace std;
 
 string program = "dlx_mols";
-string version = "0.1.2";
+string version = "0.1.3";
 
 int strtoi(string s) {
 	assert(not s.empty());
@@ -107,7 +107,7 @@ int main(int argc, char *argv[])
 	cout << squares.size() << " Latin squares were read" << endl;
 	unsigned diagls_num = 0;
 	for (auto &square : squares) if (DLX_orth::is_diag_latinsquare(square)) diagls_num++;
-	cout << diagls_num << " diagonal Latin squeres" << endl;
+	cout << "Of them " << diagls_num << " diagonal Latin squares" << endl;
 	
 	unsigned max_orth_char = 0;
 	for (int i = 0; i < squares.size(); i++) {
