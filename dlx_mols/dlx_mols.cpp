@@ -19,8 +19,10 @@
 
 #include "dlx_orth.h"
 
-std::string program = "dlx_mols";
-std::string version = "0.1.1";
+using namespace std;
+
+string program = "dlx_mols";
+string version = "0.1.2";
 
 int strtoi(string s) {
 	assert(not s.empty());
@@ -92,8 +94,14 @@ unsigned calc_orth_char(const latinsquare_t dls1, const latinsquare_t dls2) {
 
 int main(int argc, char *argv[]) 
 {
+	cout << "Running " << program << " of version " << version << endl;
+	if (argc < 2) {
+        cout << "Usage : " << program << " DLS-file" << endl;
+        return 1;
+    }
+
 	string filename = argv[1];
-	unsigned n = 10;
+	const unsigned n = 10;
 
 	vector<latinsquare_t> squares = read_squares(filename, n);
 	cout << squares.size() << " Latin squares were read" << endl;

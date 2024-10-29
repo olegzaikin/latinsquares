@@ -4,7 +4,8 @@
 #include <vector>
 #include <cassert>
 
-#define latinsquare_t vector<vector<int>>
+#define row_t vector<int>
+#define latinsquare_t vector<row_t>
 
 using namespace std;
 

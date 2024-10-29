@@ -386,7 +386,7 @@ vector<latinsquare_t> DLX_orth::find_all_orth_mates(const latinsquare_t square) 
 		//out << transversals.size() << " sets of disjoint transversals" << endl;
 
 		for (int i = 0; i < transversals.size(); i++) {
-			latinsquare_t orth_square(n, vector<int>(n));
+			latinsquare_t orth_square(n, row_t(n));
 			for (unsigned u = 0; u < n; u++) {
 				for (unsigned v = 0; v < n; v++) {
 					orth_square[v][trm[transversals[i][u]][v]] = u;

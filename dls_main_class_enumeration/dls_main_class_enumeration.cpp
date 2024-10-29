@@ -28,7 +28,7 @@ using namespace std;
 #define matrix_t vector<row_t>
 
 string prog = "dls_main_class_enumeration";
-string version = "0.2.0";
+string version = "0.2.1";
 
 void print(matrix_t matrix) {
     for (auto &row : matrix) {
@@ -483,6 +483,7 @@ set<matrix_t> find_main_class_repres(vector<matrix_t> dls_arr, set<matrix_t> cms
  }
 
 int main(int argc, char *argv[]) {
+    cout << "Running " << prog << " of version " << version << endl;
     if (argc < 4) {
         cout << "Usage : " << prog << " order DLS-file CMS-file" << endl;
         return 1;
@@ -492,7 +493,7 @@ int main(int argc, char *argv[]) {
     string cms_fname = argv[3];
 
     cout << prog << " of version " << version << " is running" << endl;
-    cout << "order : " << n << endl;
+    cout << "order : "         << n         << endl;
     cout << "DLS file name : " << dls_fname << endl;
     cout << "CMS file name : " << cms_fname << endl;
     assert(n > 0 and n < 11);
@@ -501,10 +502,11 @@ int main(int argc, char *argv[]) {
 
     vector<matrix_t> dls_arr = read_dls_string(dls_fname, n);
     cout << dls_arr.size() << " DLS were read" << endl;
+    assert(dls_arr.size() > 0);
 
     set<matrix_t> cms_from_file = read_cms(cms_fname, n);
     cout << cms_from_file.size() << " CMS were read" << endl;
-    //for (auto &cms : cms_from_file) print(cms);
+    assert(cms_from_file.size() > 0);
 
     std::chrono::steady_clock::time_point cur_point = std::chrono::steady_clock::now();
     cout << "Elapsed " << std::chrono::duration_cast<std::chrono::seconds> (cur_point - start_point).count() << " sec" << std::endl;
@@ -594,7 +596,7 @@ int main(int argc, char *argv[]) {
     stringstream sstream;
     sstream << "x_fillings_n" << n << "_new.txt";
     string x_fname = sstream.str();
-    cout << "Wriring X-based partial fillings to file " << x_fname << endl;
+    cout << "Writing X-based partial fillings to file " << x_fname << endl;
     ofstream ofile(x_fname, ios_base::out);
     k = 0;
     for (auto &x_fill : x_based_main_class_repres_set) {
