@@ -28,7 +28,7 @@ using namespace std;
 #define matrix_t vector<row_t>
 
 string prog = "dls_main_class_enumeration";
-string version = "0.2.1";
+string version = "0.2.2";
 
 void print(matrix_t matrix) {
     for (auto &row : matrix) {
