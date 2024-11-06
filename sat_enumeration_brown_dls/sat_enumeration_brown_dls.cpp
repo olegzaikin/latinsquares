@@ -29,7 +29,7 @@
 using namespace std;
 
 string program = "sat_enumeration_brown_dls";
-string version = "0.0.1";
+string version = "0.0.2";
 
 struct SatEncDls {
     vector<vector<cell_t>> X;
@@ -515,16 +515,19 @@ int main(int argc, char *argv[])
     vector<cover_t> covers = gen_covers(n);
 
     // For each cover, generate a horizontal-symmetry and a vertical-symmetry CNF:
-    set<string> all_ls_set;
+    //set<string> all_ls_set;
     unsigned cover_index=0;
     for (auto &cvr : covers) {
         string horiz_sym_cnf_fname = generate_cnf_brown_dls_horiz_sym(n, satencdls, covers[cover_index], cover_index);
         vector<string> ls_str_arr = find_all_dls_sat_solver(horiz_sym_cnf_fname, n);
-        for (auto &ls_str : ls_str_arr) all_ls_set.insert(ls_str);
+        string brown_dls_cover_fname = "brown_dls_n" + to_string(n) + "_cover" + to_string(cover_index);
+        ofstream ofile(brown_dls_cover_fname, ios_base::out);
+        for (auto &ls_str : ls_str_arr) ofile << ls_str << endl;
         //
         string vertic_sym_cnf_fname = generate_cnf_brown_dls_vertic_sym(n, satencdls, covers[cover_index], cover_index);
         ls_str_arr = find_all_dls_sat_solver(vertic_sym_cnf_fname, n);
-        for (auto &ls_str : ls_str_arr) all_ls_set.insert(ls_str);
+        for (auto &ls_str : ls_str_arr) ofile << ls_str << endl;
+        ofile.close();
         cover_index++;
         cout << "processed " << cover_index << " covers out of " << covers.size() << endl;
         const time_point_t program_end = std::chrono::system_clock::now();
@@ -532,7 +535,7 @@ int main(int argc, char *argv[])
         << std::chrono::duration_cast<std::chrono::seconds>(program_end - program_start).count()
         << " seconds" << std::endl;
     }
-    cout << all_ls_set.size() << " Brown DLS in total" << endl;
+    //cout << all_ls_set.size() << " Brown DLS in total" << endl;
 
     return 0;
 }
