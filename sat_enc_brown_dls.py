@@ -11,7 +11,7 @@ import itertools
 import os
 
 script = "sat_enc_brown_dls.py"
-version = "0.0.1"
+version = "0.0.3"
 
 def print_row(arr : list):
     assert(len(arr) > 0)
@@ -32,7 +32,7 @@ def at_most_one_clauses(vars : list):
 	assert(len(vars) > 1)
 	assert(len(set(vars)) == len(vars))
 	res_clauses = []
-	for i in range(len(vars)):
+	for i in range(len(vars)-1):
 		for j in range(i+1, len(vars)):
 			res_clauses.append([-vars[i], -vars[j]])
 	return res_clauses
@@ -111,7 +111,6 @@ def equality_clauses(x : int, y : int):
 def horizontal_symmetry(X : list, n : int):
     assert(n > 0 and n % 2 == 0)
     assert(len(X) == n)
-    assert(n > 0)
     horiz_sym_clauses = []
     half_n = int(n/2)
     for i in range(n): # for each row
@@ -153,6 +152,7 @@ def gen_covers(n : int):
     for comb in itertools.combinations(pair_combinations, int(n/2)):
         comb_num += 1
         row_indices_set = set()
+        #print(comb)
         for pair in comb:
             row_indices_set.add(pair[0])
             row_indices_set.add(pair[1])
@@ -172,13 +172,17 @@ def gen_covers(n : int):
         print(covers[-1])
     return covers
 
-def generate_cnf_brown_dls_horiz_sym(n : int, vars_num : int, X : list, dls_clauses : list, horiz_sym_clauses : list, cvr : list, cvr_indx : int):
+def generate_cnf_brown_dls_horiz_sym(n : int, vars_num : int, X : list, dls_clauses : list, cvr : list, cvr_indx : int):
     assert(n > 0 and n % 2 == 0)
     assert(vars_num > 0)
     assert(len(X) > 0)
     assert(len(dls_clauses) > 0)
-    assert(len(horiz_sym_clauses) > 0)
     assert(len(cvr) == int(n/2))
+    # Add constraints for horizontal symmetry:
+    horiz_sym_clauses = horizontal_symmetry(X, n)
+    assert(len(horiz_sym_clauses) > 0)
+    #print(str(len(horiz_sym_clauses)) + ' clauses encode horizontal symmetry')
+    # Constraints for inverse rows:
     all_eq_clauses = []
     for inverse_rows_indices in cvr:
         for j in range(n):
@@ -186,6 +190,7 @@ def generate_cnf_brown_dls_horiz_sym(n : int, vars_num : int, X : list, dls_clau
                 eq_clauses = equality_clauses(X[inverse_rows_indices[0]][j][k], X[inverse_rows_indices[1]][n-1-j][k])
                 for cla in eq_clauses:
                     all_eq_clauses.append(cla)
+    # Write to CNF:
     cnf_fname = "dls_n" + str(n) + "_first_row_ascending_horiz_sym_inverse_rows_" + str(cvr_indx) + ".cnf"
     #print('Writing a CNF for DLS with horizontal symmetry and inverse rows to the file ' + cnf_fname)
     cla_num = len(dls_clauses) + len(horiz_sym_clauses) + len(all_eq_clauses)
@@ -334,25 +339,13 @@ if __name__ == "__main__":
         for cla in dls_clauses:
             cnf_dls_f.write(clause_to_str(cla) + '\n')
 
-    # Add constraints for horizontal symmetry:
-    horiz_sym_clauses = horizontal_symmetry(X, n)
-    print(str(len(horiz_sym_clauses)) + ' clauses encode horizontal symmetry')
-    #cnf_dls_horiz_sym_fname = "dls_n" + str(n) + "_first_row_ascending_horiz_sym.cnf"
-    #print('Writing a CNF for DLS with horizontal symmetry to the file ' + cnf_dls_horiz_sym_fname)
-    #with open(cnf_dls_horiz_sym_fname, 'w') as cnf_dls_horiz_sym_f:
-    #    cnf_dls_horiz_sym_f.write('p cnf ' + str(vars_num) + ' ' + str(len(dls_clauses) + len(horiz_sym_clauses)) + '\n')
-    #    for cla in dls_clauses:
-    #        cnf_dls_horiz_sym_f.write(clause_to_str(cla) + '\n')
-    #    for cla in horiz_sym_clauses:
-    #        cnf_dls_horiz_sym_f.write(clause_to_str(cla) + '\n')
-
     # Generate all covers of fives of pairs: 
     covers = gen_covers(n)
 
     # For each cover, generate a horizontal-symmetry and a vertical-symmetry CNF:
     all_ls_set = set()
     for i in range(len(covers)):
-        horiz_sym_cnf_fname = generate_cnf_brown_dls_horiz_sym(n, vars_num, X, dls_clauses, horiz_sym_clauses, covers[i], i)
+        horiz_sym_cnf_fname = generate_cnf_brown_dls_horiz_sym(n, vars_num, X, dls_clauses, covers[i], i)
         # Find all satisfying assignments:
         out_fname = 'out_' + horiz_sym_cnf_fname.split('.cnf')[0]
         os.system('clasp --models 0 --enum-mode=bt --configuration=crafty ./' + horiz_sym_cnf_fname + ' > ' + out_fname)
@@ -372,6 +365,6 @@ if __name__ == "__main__":
         os.system('rm ' + out_fname)
         print('processed ' + str(i+1) + ' covers out of ' + str(len(covers)))
 
-print(str(len(all_ls_set)) + ' Brown DLS of order ' + str(n))
-#for ls in all_ls_set:
-#    print(ls)
+    print(str(len(all_ls_set)) + ' Brown DLS of order ' + str(n))
+    #for ls in all_ls_set:
+    #    print(ls)
