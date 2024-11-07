@@ -18,18 +18,19 @@
 #include <sstream>
 #include <chrono>
 #include <cassert>
-
-#include "../dlx_mols/dlx_orth.h"
+#include <cmath>
 
 #define clause_t vector<int>
 #define cell_t vector<unsigned>
 #define cover_t vector<vector<int>>
+#define row_t vector<short int>
+#define matrix_t vector<row_t>
 #define time_point_t std::chrono::time_point<std::chrono::system_clock>
 
 using namespace std;
 
 string program = "sat_enumeration_brown_dls";
-string version = "0.0.3";
+string version = "0.1.0";
 
 struct SatEncDls {
     vector<vector<cell_t>> X;
@@ -43,11 +44,12 @@ vector<clause_t> exactly_one_clauses(vector<unsigned> vars);
 vector<clause_t> latin_square_clauses(const vector<vector<cell_t>> X, bool is_diag);
 SatEncDls diag_latin_square(const unsigned n, bool is_first_row_ascending);
 vector<clause_t> equality_clauses(const unsigned x, const unsigned y);
-vector<clause_t> vertical_symmetry_clauses(const vector<vector<cell_t>> X, const unsigned n, const cover_t cover);
-vector<clause_t> horizontal_symmetry_clauses(const vector<vector<cell_t>> X, const unsigned n);
+vector<clause_t> vertical_symmetry_clauses(const vector<vector<cell_t>> X,
+                                           const unsigned n, const cover_t cover);
+vector<clause_t> horizontal_symmetry_clauses(const vector<vector<cell_t>> X,
+                                             const unsigned n);
 int conseq_multip(const int lower_bound, const int upper_bound);
 vector<vector<int>> combinations(const int n, const int k);
-void print(cover_t cover);
 vector<cover_t> gen_covers(const unsigned n);
 string replace(const string str, const string orig_substr, const string repl_substr);
 string generate_cnf_brown_dls_vertic_sym(const unsigned n, const SatEncDls satencdls,
@@ -55,8 +57,15 @@ string generate_cnf_brown_dls_vertic_sym(const unsigned n, const SatEncDls saten
 string generate_cnf_brown_dls_horiz_sym(const unsigned n, const SatEncDls satencdls,
                                         const cover_t cover, const unsigned cover_index);
 string ls_from_sat(const vector<int> sat_assignment, const unsigned n);
-vector<string> parse_latin_squares_from_sat_assign(const string solver_out_fname, const unsigned n);
+vector<string> parse_latin_squares_from_sat_assign(const string solver_out_fname,
+                                                   const unsigned n);
 vector<string> find_all_dls_sat_solver(const string cnf_fname, const unsigned n);
+bool is_digits(const string str);
+set<matrix_t> read_cms(const string filename, const unsigned n);
+string min_main_class_repres(const string dls, const set<matrix_t> cms_set);
+string normalize(const string ls);
+void print(const cover_t cover);
+void print(const string ls);
 
 int main(int argc, char *argv[])
 {
@@ -68,18 +77,25 @@ int main(int argc, char *argv[])
     }
 
     if (argc < 2) {
-        cout << "Usage: " << program << " DLS-order" << endl;
+        cout << "Usage: " << program << " DLS-order [CMS-file]" << endl;
         return 1;
     }
+
+    const time_point_t program_start = std::chrono::system_clock::now();
 
     unsigned n = 0;
     istringstream(argv_str[1]) >> n;
     assert(n > 1 and n < 11 and n % 2 == 0);
-
     cout << "Running " << program << " of version " << version << endl;
     cout << "n : " << n << endl;
-
-    const time_point_t program_start = std::chrono::system_clock::now();
+    string cms_fname = "";
+    set<matrix_t> cms_set;
+    if (argc > 2) {
+        cms_fname = argv_str[2];
+        cout << "CMS file name : " << cms_fname << endl;
+        cms_set = read_cms(cms_fname, n);
+        cout << cms_set.size() << " CMS were read" << endl;
+    }
 
     // Make a CNF that encodes a diagonal Latin square of order n:
     SatEncDls satencdls = diag_latin_square(n, true);
@@ -96,27 +112,57 @@ int main(int argc, char *argv[])
     vector<cover_t> covers = gen_covers(n);
 
     // For each cover, generate a horizontal-symmetry and a vertical-symmetry CNF:
-    //set<string> all_ls_set;
     unsigned cover_index=0;
+    set<string> main_class_repres_set;
+    string min_repres = "";
     for (auto &cvr : covers) {
         string horiz_sym_cnf_fname = generate_cnf_brown_dls_horiz_sym(n, satencdls, covers[cover_index], cover_index);
-        vector<string> ls_str_arr = find_all_dls_sat_solver(horiz_sym_cnf_fname, n);
-        string brown_dls_cover_fname = "brown_dls_n" + to_string(n) + "_cover" + to_string(cover_index);
-        ofstream ofile(brown_dls_cover_fname, ios_base::out);
-        for (auto &ls_str : ls_str_arr) ofile << ls_str << endl;
+        vector<string> ls_str_arr_horiz = find_all_dls_sat_solver(horiz_sym_cnf_fname, n);
+        if (cms_set.size() > 0) {
+            for (auto &ls : ls_str_arr_horiz) {
+                min_repres = min_main_class_repres(ls, cms_set);
+                main_class_repres_set.insert(min_repres);
+            }
+        }
         //
         string vertic_sym_cnf_fname = generate_cnf_brown_dls_vertic_sym(n, satencdls, covers[cover_index], cover_index);
-        ls_str_arr = find_all_dls_sat_solver(vertic_sym_cnf_fname, n);
-        for (auto &ls_str : ls_str_arr) ofile << ls_str << endl;
-        ofile.close();
+        vector<string> ls_str_arr_vertic = find_all_dls_sat_solver(vertic_sym_cnf_fname, n);
+        if (cms_set.size() > 0) {
+            for (auto &ls : ls_str_arr_vertic) {
+                min_repres = min_main_class_repres(ls, cms_set);
+                main_class_repres_set.insert(min_repres);
+            }
+        }
+        if (ls_str_arr_horiz.size() > 0 or ls_str_arr_vertic.size() > 0) {
+            string brown_dls_cover_fname = "brown_dls_n" + to_string(n) + "_cover" + to_string(cover_index);
+            ofstream ofile(brown_dls_cover_fname, ios_base::out);
+            for (auto &ls : ls_str_arr_horiz) ofile << ls << endl;
+            for (auto &ls : ls_str_arr_vertic) ofile << ls << endl;
+            ofile.close();
+        }
         cover_index++;
         cout << "processed " << cover_index << " covers out of " << covers.size() << endl;
+        cout << main_class_repres_set.size() << " main class representatives" << endl;
         const time_point_t program_end = std::chrono::system_clock::now();
         cout << "Elapsed : "
         << std::chrono::duration_cast<std::chrono::seconds>(program_end - program_start).count()
         << " seconds" << std::endl;
     }
-    //cout << all_ls_set.size() << " Brown DLS in total" << endl;
+
+    cout << main_class_repres_set.size() << " main class representatives" << endl;
+    string main_class_fname = "brown_dls_n" + to_string(n) + "_main_class_repres";
+    ofstream main_class_file(main_class_fname, ios_base::out);
+    for (auto &dls : main_class_repres_set) {
+        for (unsigned i=0; i<n; i++) {
+            for (unsigned j=0; j<n; j++) {
+                main_class_file << dls[i*n + j];
+                if (j != n-1) main_class_file << " ";
+            }
+            main_class_file << endl;
+        }
+        main_class_file << endl;
+    }
+    main_class_file.close();
 
     return 0;
 }
@@ -321,7 +367,22 @@ vector<vector<int>> combinations(const int n, const int k) {
     return combs;
 }
 
-void print(cover_t cover) {
+void print(const string ls) {
+    const unsigned ls_len = ls.size();
+    assert(ls_len > 0);
+    const unsigned n = (unsigned)sqrt(ls_len);
+    assert(n > 0);
+    for (unsigned i=0; i<n; i++) {
+        for (unsigned j=0; j<n; j++) {
+            assert(i*n + j < ls_len);
+            cout << ls[i*n + j] << " ";
+        }
+        cout << endl;
+    }
+    cout << endl;
+}
+
+void print(const cover_t cover) {
     assert(cover.size() > 0);
     for (auto &pair : cover) {
         assert(pair.size() == 2);
@@ -559,4 +620,105 @@ vector<string> find_all_dls_sat_solver(const string cnf_fname, const unsigned n)
     systemRet = system(sys_str.c_str());
     assert(systemRet == 0);
     return ls_str_arr;
+}
+
+bool is_digits(const string str)
+{
+    return all_of(str.begin(), str.end(), ::isdigit);
+}
+
+// Read CMSs from a given file:
+set<matrix_t> read_cms(const string filename, const unsigned n) {
+    assert(n > 0 and n < 11);
+    assert(not filename.empty());
+	set<matrix_t> cms_set;
+	ifstream in;
+	in.open(filename);
+	assert(in.is_open());
+	string s;
+	matrix_t cms;
+	while (getline(in, s)) {
+		if (s == "" and cms.size() > 0){
+            assert(cms.size() == n);
+			cms_set.insert(cms);
+			cms.clear();
+		}
+		else {
+			vector<short int> tmp;
+            stringstream sstream(s);
+            string word;
+            while (sstream >> word) {
+                if (not is_digits(word)) {
+                    tmp.clear();
+                    break;
+                }
+                short int si = -1;
+                istringstream(word) >> si;
+				tmp.push_back(si);
+            }
+            if (not tmp.empty()) {
+                assert(tmp.size() == n);
+                cms.push_back(tmp);
+            }
+		}
+	}
+	in.close();
+	return cms_set;
+}
+
+// Normalize LS, i.e. make its main diagonal 0, 1, ..., n-1
+string normalize(const string ls) {
+    const unsigned ls_len = ls.size();
+    assert(ls_len > 0);
+    const unsigned n = (unsigned)sqrt(ls_len);
+    assert(n > 0 and n < 11);
+    string norm_ls = ls;
+    string norm_perm(n, '-');
+    // Element in permutation is i if its index is i-th element in main diag:
+    for (unsigned i = 0; i < n; i++) {
+        // Here ls[i*n + i] - '0' is char->int convertion to get index:
+        norm_perm[ls[i*n + i] - '0'] = (char)i + '0';
+    }
+    for (unsigned i = 0; i < n; i++) {
+        for (unsigned j = 0; j < n; j++) {
+            norm_ls[i*n + j] = norm_perm[ls[i*n + j] - '0'];
+        }
+    }
+    for (unsigned i = 0; i < n; i++) {
+        assert(norm_ls[i*n + i] == (char)i + '0');
+    }
+    return norm_ls;
+}
+
+// Given a DLS as a string and a set of CMS, find the minimal main class representative:
+string min_main_class_repres(const string dls, const set<matrix_t> cms_set) {
+    assert(not dls.empty());
+    const unsigned dls_len = dls.size();
+    assert(dls_len > 0);
+    const unsigned n = (unsigned)sqrt(dls_len);
+    assert(n > 0 and n < 11);
+    assert(cms_set.size() > 0);
+    string new_dls(dls_len, '-');
+    string norm_dls = "";
+    string min_repres = "";
+    for (auto cms : cms_set) {
+        assert(cms.size() == n);
+        for (unsigned i=0; i<n; i++) {
+            assert(cms[i].size() == n);
+            for (unsigned j=0; j<n; j++) {
+                const unsigned i2 = cms[i][j] / n;
+                const unsigned j2 = cms[i][j] % n;
+                assert(i2*n + j2 < new_dls.size());
+                assert(new_dls.size() == dls.size());
+                new_dls[i2*n + j2] = dls[i*n + j];
+            }
+        }
+        // Normalize:
+        norm_dls = normalize(new_dls);
+        if (min_repres == "" or norm_dls < min_repres) {
+            min_repres = norm_dls;
+        }
+    }
+    assert(min_repres.size() == dls_len);
+    return min_repres;
 }
