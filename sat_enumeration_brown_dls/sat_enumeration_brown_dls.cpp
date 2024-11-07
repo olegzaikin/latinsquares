@@ -37,6 +37,90 @@ struct SatEncDls {
     vector<clause_t> clauses;
 };
 
+string clause_to_str(const clause_t cla);
+vector<clause_t> at_most_one_clauses(vector<unsigned> vars);
+vector<clause_t> exactly_one_clauses(vector<unsigned> vars);
+vector<clause_t> latin_square_clauses(const vector<vector<cell_t>> X, bool is_diag);
+SatEncDls diag_latin_square(const unsigned n, bool is_first_row_ascending);
+vector<clause_t> equality_clauses(const unsigned x, const unsigned y);
+vector<clause_t> vertical_symmetry_clauses(const vector<vector<cell_t>> X, const unsigned n, const cover_t cover);
+vector<clause_t> horizontal_symmetry_clauses(const vector<vector<cell_t>> X, const unsigned n);
+int conseq_multip(const int lower_bound, const int upper_bound);
+vector<vector<int>> combinations(const int n, const int k);
+void print(cover_t cover);
+vector<cover_t> gen_covers(const unsigned n);
+string replace(const string str, const string orig_substr, const string repl_substr);
+string generate_cnf_brown_dls_vertic_sym(const unsigned n, const SatEncDls satencdls,
+                                         const cover_t cover, const unsigned cover_index);
+string generate_cnf_brown_dls_horiz_sym(const unsigned n, const SatEncDls satencdls,
+                                        const cover_t cover, const unsigned cover_index);
+string ls_from_sat(const vector<int> sat_assignment, const unsigned n);
+vector<string> parse_latin_squares_from_sat_assign(const string solver_out_fname, const unsigned n);
+vector<string> find_all_dls_sat_solver(const string cnf_fname, const unsigned n);
+
+int main(int argc, char *argv[])
+{
+    vector<string> argv_str;
+    for (unsigned i=0; i<argc; i++) argv_str.push_back(argv[i]);
+	if ((argc == 2) and (argv_str[1] == "-v")) {
+        cout << program << " of version " << version << endl;
+        return 1;
+    }
+
+    if (argc < 2) {
+        cout << "Usage: " << program << " DLS-order" << endl;
+        return 1;
+    }
+
+    unsigned n = 0;
+    istringstream(argv_str[1]) >> n;
+    assert(n > 1 and n < 11 and n % 2 == 0);
+
+    cout << "Running " << program << " of version " << version << endl;
+    cout << "n : " << n << endl;
+
+    const time_point_t program_start = std::chrono::system_clock::now();
+
+    // Make a CNF that encodes a diagonal Latin square of order n:
+    SatEncDls satencdls = diag_latin_square(n, true);
+    cout << satencdls.vars_num << " variables encode DLS" << endl;
+    cout << satencdls.clauses.size() << " clauses encode DLS" << endl;
+
+    string cnf_dls_fname = "dls_n" + to_string(n) + "_first_row_ascending.cnf";
+    //cout << "Writing a CNF for DLS to the file " << cnf_dls_fname << endl;
+    ofstream ofile(cnf_dls_fname, ios_base::out);
+    ofile << "p cnf " + to_string(satencdls.vars_num) + " " + to_string(satencdls.clauses.size()) + "\n";
+    for (auto &cla : satencdls.clauses) ofile << clause_to_str(cla) + '\n';
+    ofile.close();
+
+    vector<cover_t> covers = gen_covers(n);
+
+    // For each cover, generate a horizontal-symmetry and a vertical-symmetry CNF:
+    //set<string> all_ls_set;
+    unsigned cover_index=0;
+    for (auto &cvr : covers) {
+        string horiz_sym_cnf_fname = generate_cnf_brown_dls_horiz_sym(n, satencdls, covers[cover_index], cover_index);
+        vector<string> ls_str_arr = find_all_dls_sat_solver(horiz_sym_cnf_fname, n);
+        string brown_dls_cover_fname = "brown_dls_n" + to_string(n) + "_cover" + to_string(cover_index);
+        ofstream ofile(brown_dls_cover_fname, ios_base::out);
+        for (auto &ls_str : ls_str_arr) ofile << ls_str << endl;
+        //
+        string vertic_sym_cnf_fname = generate_cnf_brown_dls_vertic_sym(n, satencdls, covers[cover_index], cover_index);
+        ls_str_arr = find_all_dls_sat_solver(vertic_sym_cnf_fname, n);
+        for (auto &ls_str : ls_str_arr) ofile << ls_str << endl;
+        ofile.close();
+        cover_index++;
+        cout << "processed " << cover_index << " covers out of " << covers.size() << endl;
+        const time_point_t program_end = std::chrono::system_clock::now();
+        cout << "Elapsed : "
+        << std::chrono::duration_cast<std::chrono::seconds>(program_end - program_start).count()
+        << " seconds" << std::endl;
+    }
+    //cout << all_ls_set.size() << " Brown DLS in total" << endl;
+
+    return 0;
+}
+
 string clause_to_str(const clause_t cla) {
     assert(not cla.empty());
     string str = "";
@@ -71,7 +155,7 @@ vector<clause_t> exactly_one_clauses(vector<unsigned> vars) {
 	return res_clauses;
 }
 
-vector<clause_t> latin_square_clauses(const vector<vector<cell_t>> X, bool is_diag=false){
+vector<clause_t> latin_square_clauses(const vector<vector<cell_t>> X, bool is_diag=false) {
     const unsigned n = X.size();
     assert(n > 0 and n < 11);
     vector<clause_t> dls_clauses;
@@ -475,67 +559,4 @@ vector<string> find_all_dls_sat_solver(const string cnf_fname, const unsigned n)
     systemRet = system(sys_str.c_str());
     assert(systemRet == 0);
     return ls_str_arr;
-}
-
-int main(int argc, char *argv[])
-{
-    vector<string> argv_str;
-    for (unsigned i=0; i<argc; i++) argv_str.push_back(argv[i]);
-	if ((argc == 2) and (argv_str[1] == "-v")) {
-        cout << program << " of version " << version << endl;
-        return 1;
-    }
-
-    if (argc < 2) {
-        cout << "Usage: " << program << " DLS-order" << endl;
-        return 1;
-    }
-
-    unsigned n = 0;
-    istringstream(argv_str[1]) >> n;
-    assert(n > 1 and n < 11 and n % 2 == 0);
-
-    cout << "Running " << program << " of version " << version << endl;
-    cout << "n : " << n << endl;
-
-    const time_point_t program_start = std::chrono::system_clock::now();
-
-    // Make a CNF that encodes a diagonal Latin square of order n:
-    SatEncDls satencdls = diag_latin_square(n, true);
-    cout << satencdls.vars_num << " variables encode DLS" << endl;
-    cout << satencdls.clauses.size() << " clauses encode DLS" << endl;
-
-    string cnf_dls_fname = "dls_n" + to_string(n) + "_first_row_ascending.cnf";
-    //cout << "Writing a CNF for DLS to the file " << cnf_dls_fname << endl;
-    ofstream ofile(cnf_dls_fname, ios_base::out);
-    ofile << "p cnf " + to_string(satencdls.vars_num) + " " + to_string(satencdls.clauses.size()) + "\n";
-    for (auto &cla : satencdls.clauses) ofile << clause_to_str(cla) + '\n';
-    ofile.close();
-
-    vector<cover_t> covers = gen_covers(n);
-
-    // For each cover, generate a horizontal-symmetry and a vertical-symmetry CNF:
-    //set<string> all_ls_set;
-    unsigned cover_index=0;
-    for (auto &cvr : covers) {
-        string horiz_sym_cnf_fname = generate_cnf_brown_dls_horiz_sym(n, satencdls, covers[cover_index], cover_index);
-        vector<string> ls_str_arr = find_all_dls_sat_solver(horiz_sym_cnf_fname, n);
-        string brown_dls_cover_fname = "brown_dls_n" + to_string(n) + "_cover" + to_string(cover_index);
-        ofstream ofile(brown_dls_cover_fname, ios_base::out);
-        for (auto &ls_str : ls_str_arr) ofile << ls_str << endl;
-        //
-        string vertic_sym_cnf_fname = generate_cnf_brown_dls_vertic_sym(n, satencdls, covers[cover_index], cover_index);
-        ls_str_arr = find_all_dls_sat_solver(vertic_sym_cnf_fname, n);
-        for (auto &ls_str : ls_str_arr) ofile << ls_str << endl;
-        ofile.close();
-        cover_index++;
-        cout << "processed " << cover_index << " covers out of " << covers.size() << endl;
-        const time_point_t program_end = std::chrono::system_clock::now();
-        cout << "Elapsed : "
-        << std::chrono::duration_cast<std::chrono::seconds>(program_end - program_start).count()
-        << " seconds" << std::endl;
-    }
-    //cout << all_ls_set.size() << " Brown DLS in total" << endl;
-
-    return 0;
 }
