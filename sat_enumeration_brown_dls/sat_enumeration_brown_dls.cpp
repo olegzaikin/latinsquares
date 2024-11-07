@@ -29,7 +29,7 @@
 using namespace std;
 
 string program = "sat_enumeration_brown_dls";
-string version = "0.0.2";
+string version = "0.0.3";
 
 struct SatEncDls {
     vector<vector<cell_t>> X;
