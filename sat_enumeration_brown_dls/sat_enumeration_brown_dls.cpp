@@ -33,7 +33,7 @@
 using namespace std;
 
 string program = "sat_enumeration_brown_dls";
-string version = "0.1.1";
+string version = "0.1.2";
 
 struct SatEncDls {
     vector<vector<cell_t>> X;
@@ -700,13 +700,6 @@ string normalize(const string &ls) {
         }
     }
     for (unsigned i = 0; i < n; i++) {
-        if (norm_ls[i*n + i] != (char)i + '0') {
-            cout << "ls :" << endl;
-            print(ls);
-            cout << endl;
-            cout << "norm_ls :" << endl;
-            print(norm_ls);
-        }
         assert(norm_ls[i*n + i] == (char)i + '0');
     }
     return norm_ls;
