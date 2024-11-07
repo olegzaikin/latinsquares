@@ -28,7 +28,7 @@ using namespace std;
 #define matrix_t vector<row_t>
 
 string prog = "dls_main_class_enumeration";
-string version = "0.2.2";
+string version = "0.2.3";
 
 void print(matrix_t matrix) {
     for (auto &row : matrix) {
@@ -483,30 +483,31 @@ set<matrix_t> find_main_class_repres(vector<matrix_t> dls_arr, set<matrix_t> cms
  }
 
 int main(int argc, char *argv[]) {
-    cout << "Running " << prog << " of version " << version << endl;
-    if (argc < 4) {
-        cout << "Usage : " << prog << " order DLS-file CMS-file" << endl;
+    vector<string> argv_str;
+    for (unsigned i=0; i<argc; i++) argv_str.push_back(argv[i]);
+    if (argc < 2) {
+        cout << "Usage : " << prog << " DLS-order [DLS-file] [CMS-file]" << endl;
         return 1;
     }
-    const unsigned n = atoi(argv[1]);
-    string dls_fname = argv[2];
-    string cms_fname = argv[3];
-
-    cout << prog << " of version " << version << " is running" << endl;
-    cout << "order : "         << n         << endl;
-    cout << "DLS file name : " << dls_fname << endl;
-    cout << "CMS file name : " << cms_fname << endl;
+    unsigned n;
+    istringstream(argv_str[1]) >> n;
     assert(n > 0 and n < 11);
+    cout << prog << " of version " << version << " is running" << endl;
+    cout << "DLS-order : " << n << endl;
+    string dls_fname = "";
+    string cms_fname = "";
+    if (argc > 2) {
+        dls_fname = argv_str[2];
+        assert(dls_fname != "");
+        cout << "DLS file name : " << dls_fname << endl;
+    }
+    if (argc > 3) {
+        cms_fname = argv_str[3];
+        assert(cms_fname != "");
+        cout << "CMS file name : " << cms_fname << endl;
+    }
 
     chrono::steady_clock::time_point start_point = std::chrono::steady_clock::now();
-
-    vector<matrix_t> dls_arr = read_dls_string(dls_fname, n);
-    cout << dls_arr.size() << " DLS were read" << endl;
-    assert(dls_arr.size() > 0);
-
-    set<matrix_t> cms_from_file = read_cms(cms_fname, n);
-    cout << cms_from_file.size() << " CMS were read" << endl;
-    assert(cms_from_file.size() > 0);
 
     std::chrono::steady_clock::time_point cur_point = std::chrono::steady_clock::now();
     cout << "Elapsed " << std::chrono::duration_cast<std::chrono::seconds> (cur_point - start_point).count() << " sec" << std::endl;
@@ -521,21 +522,8 @@ int main(int argc, char *argv[]) {
     cout << "Trivial CMS :" << endl;
     print(trivial_cms);
 
-    //set<matrix_t> refl_rot_cms_set = reflect_rotate(trivial_cms);
-    //cout << "refl_rot_cms_set size : " << refl_rot_cms_set.size() << endl;
-
     set<matrix_t> esodls_cms_set = reflect_rotate_symm(trivial_cms); 
     cout << "esodls_cms_set size : " << esodls_cms_set.size() << endl;
-
-    set<matrix_t> diff_set;
-    std::set_difference(
-        cms_from_file.begin(), cms_from_file.end(),
-        esodls_cms_set.begin(), esodls_cms_set.end(),
-        std::inserter(diff_set, diff_set.end()));
-
-    assert(cms_from_file.size() == esodls_cms_set.size() and diff_set.empty());
-
-    cout << "CMS set is correct" << endl;
 
     cur_point = std::chrono::steady_clock::now();
     cout << "Elapsed " << std::chrono::duration_cast<std::chrono::seconds> (cur_point - start_point).count() << " sec" << std::endl;
@@ -562,6 +550,27 @@ int main(int argc, char *argv[]) {
         k++;
     }
     out_cms_file.close();
+
+    if (dls_fname == "" or cms_fname == "") {
+        cout << "Stop since no DLS or no CMS are given" << endl;
+        return 0;
+    }
+
+    vector<matrix_t> dls_arr = read_dls_string(dls_fname, n);
+    cout << dls_arr.size() << " DLS were read" << endl;
+    assert(dls_arr.size() > 0);
+
+    set<matrix_t> cms_from_file = read_cms(cms_fname, n);
+    cout << cms_from_file.size() << " CMS were read" << endl;
+    assert(cms_from_file.size() > 0);
+
+    set<matrix_t> diff_set;
+    std::set_difference(
+        cms_from_file.begin(), cms_from_file.end(),
+        esodls_cms_set.begin(), esodls_cms_set.end(),
+        std::inserter(diff_set, diff_set.end()));
+    assert(cms_from_file.size() == esodls_cms_set.size() and diff_set.empty());
+    cout << "CMS set is correct" << endl;
 
     cout << "Generating DLS main class" << endl;
     set<matrix_t> dls_main_class_repres_set = find_main_class_repres(dls_arr, esodls_cms_set);
