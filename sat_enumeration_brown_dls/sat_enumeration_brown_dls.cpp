@@ -6,7 +6,7 @@
 // via an AllSAT solver.
 //
 // Example:
-//   ./sat_enumeration_brown_dls 8
+//   ./sat_enumeration_brown_dls 8 ./cms_n8 -cpunum=10
 //=============================================================================
 
 #include <iostream>
@@ -17,8 +17,11 @@
 #include <string>
 #include <sstream>
 #include <chrono>
+#include <thread>
 #include <cassert>
 #include <cmath>
+
+#include <omp.h>
 
 #define clause_t vector<int>
 #define cell_t vector<unsigned>
@@ -30,7 +33,7 @@
 using namespace std;
 
 string program = "sat_enumeration_brown_dls";
-string version = "0.1.0";
+string version = "0.1.1";
 
 struct SatEncDls {
     vector<vector<cell_t>> X;
@@ -38,34 +41,36 @@ struct SatEncDls {
     vector<clause_t> clauses;
 };
 
-string clause_to_str(const clause_t cla);
-vector<clause_t> at_most_one_clauses(vector<unsigned> vars);
-vector<clause_t> exactly_one_clauses(vector<unsigned> vars);
-vector<clause_t> latin_square_clauses(const vector<vector<cell_t>> X, bool is_diag);
-SatEncDls diag_latin_square(const unsigned n, bool is_first_row_ascending);
-vector<clause_t> equality_clauses(const unsigned x, const unsigned y);
-vector<clause_t> vertical_symmetry_clauses(const vector<vector<cell_t>> X,
-                                           const unsigned n, const cover_t cover);
-vector<clause_t> horizontal_symmetry_clauses(const vector<vector<cell_t>> X,
-                                             const unsigned n);
-int conseq_multip(const int lower_bound, const int upper_bound);
-vector<vector<int>> combinations(const int n, const int k);
-vector<cover_t> gen_covers(const unsigned n);
-string replace(const string str, const string orig_substr, const string repl_substr);
-string generate_cnf_brown_dls_vertic_sym(const unsigned n, const SatEncDls satencdls,
-                                         const cover_t cover, const unsigned cover_index);
-string generate_cnf_brown_dls_horiz_sym(const unsigned n, const SatEncDls satencdls,
-                                        const cover_t cover, const unsigned cover_index);
-string ls_from_sat(const vector<int> sat_assignment, const unsigned n);
-vector<string> parse_latin_squares_from_sat_assign(const string solver_out_fname,
-                                                   const unsigned n);
-vector<string> find_all_dls_sat_solver(const string cnf_fname, const unsigned n);
-bool is_digits(const string str);
-set<matrix_t> read_cms(const string filename, const unsigned n);
-string min_main_class_repres(const string dls, const set<matrix_t> cms_set);
-string normalize(const string ls);
-void print(const cover_t cover);
-void print(const string ls);
+string clause_to_str(const clause_t &cla);
+vector<clause_t> at_most_one_clauses(vector<unsigned> &vars);
+vector<clause_t> exactly_one_clauses(vector<unsigned> &vars);
+vector<clause_t> latin_square_clauses(const vector<vector<cell_t>> &X, const bool &is_diag);
+SatEncDls diag_latin_square(const unsigned &n, const bool &is_first_row_ascending);
+vector<clause_t> equality_clauses(const unsigned &x, const unsigned &y);
+vector<clause_t> vertical_symmetry_clauses(const vector<vector<cell_t>> &X,
+                                           const unsigned &n, const cover_t &cover);
+vector<clause_t> horizontal_symmetry_clauses(const vector<vector<cell_t>> &X,
+                                             const unsigned &n);
+int conseq_multip(const int &lower_bound, const int &upper_bound);
+vector<vector<int>> combinations(const int &n, const int &k);
+vector<cover_t> gen_covers(const unsigned &n);
+string replace(const string &str, const string &orig_substr, const string &repl_substr);
+string generate_cnf_brown_dls_vertic_sym(const unsigned &n, const SatEncDls &satencdls,
+                                         const cover_t &cover, const unsigned &cover_index);
+string generate_cnf_brown_dls_horiz_sym(const unsigned &n, const SatEncDls &satencdls,
+                                        const cover_t &cover, const unsigned &cover_index);
+string ls_from_sat(const vector<int> &sat_assignment, const unsigned &n);
+vector<string> parse_latin_squares_from_sat_assign(const string &solver_out_fname,
+                                                   const unsigned &n);
+vector<string> find_all_dls_sat_solver(const string &cnf_fname, const unsigned &n,
+                                       const unsigned &cover_index);
+bool is_digits(const string &str);
+set<matrix_t> read_cms(const string &filename, const unsigned &n);
+string min_main_class_repres(const string &dls, const set<matrix_t> &cms_set);
+string normalize(const string &ls);
+void print(const cover_t &cover);
+void print(const string &ls);
+string str_after_prefix(const string &str, const string &prefix);
 
 int main(int argc, char *argv[])
 {
@@ -76,8 +81,8 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    if (argc < 2) {
-        cout << "Usage: " << program << " DLS-order [CMS-file]" << endl;
+    if (argc < 4) {
+        cout << "Usage: " << program << " DLS-order CMS-file -cpunum=<int>" << endl;
         return 1;
     }
 
@@ -90,12 +95,20 @@ int main(int argc, char *argv[])
     cout << "n : " << n << endl;
     string cms_fname = "";
     set<matrix_t> cms_set;
-    if (argc > 2) {
-        cms_fname = argv_str[2];
-        cout << "CMS file name : " << cms_fname << endl;
-        cms_set = read_cms(cms_fname, n);
-        cout << cms_set.size() << " CMS were read" << endl;
-    }
+    
+    cms_fname = argv_str[2];
+    cout << "CMS file name : " << cms_fname << endl;
+    cms_set = read_cms(cms_fname, n);
+    assert(cms_set.size() > 0);
+    cout << cms_set.size() << " CMS were read" << endl;
+
+    string s = str_after_prefix(argv_str[3], "-cpunum=");
+    unsigned cpunum = 0;
+	if (s != "") std::istringstream(s) >> cpunum;
+
+    const unsigned nthreads = cpunum > 0 ? cpunum : std::thread::hardware_concurrency();
+	std::cout << "threads       : " << nthreads << std::endl;
+	omp_set_num_threads(nthreads);
 
     // Make a CNF that encodes a diagonal Latin square of order n:
     SatEncDls satencdls = diag_latin_square(n, true);
@@ -112,24 +125,26 @@ int main(int argc, char *argv[])
     vector<cover_t> covers = gen_covers(n);
 
     // For each cover, generate a horizontal-symmetry and a vertical-symmetry CNF:
-    unsigned cover_index=0;
     set<string> main_class_repres_set;
-    string min_repres = "";
-    for (auto &cvr : covers) {
+    unsigned processed = 0;
+    #pragma omp parallel for schedule(dynamic, 1)
+    for (unsigned cover_index=0; cover_index < covers.size(); cover_index++) {
         string horiz_sym_cnf_fname = generate_cnf_brown_dls_horiz_sym(n, satencdls, covers[cover_index], cover_index);
-        vector<string> ls_str_arr_horiz = find_all_dls_sat_solver(horiz_sym_cnf_fname, n);
+        vector<string> ls_str_arr_horiz = find_all_dls_sat_solver(horiz_sym_cnf_fname, n, cover_index);
         if (cms_set.size() > 0) {
             for (auto &ls : ls_str_arr_horiz) {
-                min_repres = min_main_class_repres(ls, cms_set);
+                string min_repres = min_main_class_repres(ls, cms_set);
+                assert(min_repres.size() == n*n);
                 main_class_repres_set.insert(min_repres);
             }
         }
         //
         string vertic_sym_cnf_fname = generate_cnf_brown_dls_vertic_sym(n, satencdls, covers[cover_index], cover_index);
-        vector<string> ls_str_arr_vertic = find_all_dls_sat_solver(vertic_sym_cnf_fname, n);
+        vector<string> ls_str_arr_vertic = find_all_dls_sat_solver(vertic_sym_cnf_fname, n, cover_index);
         if (cms_set.size() > 0) {
             for (auto &ls : ls_str_arr_vertic) {
-                min_repres = min_main_class_repres(ls, cms_set);
+                string min_repres = min_main_class_repres(ls, cms_set);
+                assert(min_repres.size() == n*n);
                 main_class_repres_set.insert(min_repres);
             }
         }
@@ -140,8 +155,8 @@ int main(int argc, char *argv[])
             for (auto &ls : ls_str_arr_vertic) ofile << ls << endl;
             ofile.close();
         }
-        cover_index++;
-        cout << "processed " << cover_index << " covers out of " << covers.size() << endl;
+        processed++;
+        cout << "processed " << processed << " covers out of " << covers.size() << endl;
         cout << main_class_repres_set.size() << " main class representatives" << endl;
         const time_point_t program_end = std::chrono::system_clock::now();
         cout << "Elapsed : "
@@ -167,7 +182,7 @@ int main(int argc, char *argv[])
     return 0;
 }
 
-string clause_to_str(const clause_t cla) {
+string clause_to_str(const clause_t &cla) {
     assert(not cla.empty());
     string str = "";
     for (auto &lit : cla) str += to_string(lit) + " ";
@@ -175,7 +190,7 @@ string clause_to_str(const clause_t cla) {
 }
 
 // Clauses for the AtMostOne constraint:
-vector<clause_t> at_most_one_clauses(vector<unsigned> vars) {
+vector<clause_t> at_most_one_clauses(vector<unsigned> &vars) {
 	assert(vars.size() > 1);
 	vector<clause_t> res_clauses;
 	for (unsigned i=0; i<vars.size()-1; i++) {
@@ -189,7 +204,7 @@ vector<clause_t> at_most_one_clauses(vector<unsigned> vars) {
 }
 
 // Clauses for the ExactlyOne constraint for a set of variables:
-vector<clause_t> exactly_one_clauses(vector<unsigned> vars) {
+vector<clause_t> exactly_one_clauses(vector<unsigned> &vars) {
 	assert(vars.size() > 1);
     vector<clause_t> res_clauses;
     // At most one constraint: 
@@ -201,7 +216,7 @@ vector<clause_t> exactly_one_clauses(vector<unsigned> vars) {
 	return res_clauses;
 }
 
-vector<clause_t> latin_square_clauses(const vector<vector<cell_t>> X, bool is_diag=false) {
+vector<clause_t> latin_square_clauses(const vector<vector<cell_t>> &X, const bool &is_diag) {
     const unsigned n = X.size();
     assert(n > 0 and n < 11);
     vector<clause_t> dls_clauses;
@@ -246,7 +261,7 @@ vector<clause_t> latin_square_clauses(const vector<vector<cell_t>> X, bool is_di
     return dls_clauses;
 }
 
-SatEncDls diag_latin_square(const unsigned n, bool is_first_row_ascending = false) {
+SatEncDls diag_latin_square(const unsigned &n, const bool &is_first_row_ascending) {
     assert(n > 0 and n < 11);
     // n^3 variables in the CNF encode a Latin square:
     vector<vector<cell_t>> X(n, vector<cell_t>(n, cell_t(n, 0)));
@@ -280,7 +295,7 @@ SatEncDls diag_latin_square(const unsigned n, bool is_first_row_ascending = fals
 }
 
 // Clauses for equality of two variables:
-vector<clause_t> equality_clauses(const unsigned x, const unsigned y) {
+vector<clause_t> equality_clauses(const unsigned &x, const unsigned &y) {
     assert(x > 0 and y > 0 and x != y);
     vector<clause_t> clauses;
     clause_t cla1 = {(int)x, -(int)y};
@@ -290,7 +305,7 @@ vector<clause_t> equality_clauses(const unsigned x, const unsigned y) {
     return clauses;
 }
 
-vector<clause_t> vertical_symmetry_clauses(const vector<vector<cell_t>> X, const unsigned n, const cover_t cover) {
+vector<clause_t> vertical_symmetry_clauses(const vector<vector<cell_t>> &X, const unsigned &n, const cover_t &cover) {
     assert(n > 0 and n < 11);
     assert(n % 2 == 0 and X.size() == n);
     vector<clause_t> res_clauses;
@@ -308,7 +323,7 @@ vector<clause_t> vertical_symmetry_clauses(const vector<vector<cell_t>> X, const
     return res_clauses;
 }
 
-vector<clause_t> horizontal_symmetry_clauses(const vector<vector<cell_t>> X, const unsigned n) {
+vector<clause_t> horizontal_symmetry_clauses(const vector<vector<cell_t>> &X, const unsigned &n) {
     assert(n > 0 and n < 11);
     assert(n % 2 == 0 and X.size() == n);
     vector<clause_t> res_clauses;
@@ -326,7 +341,7 @@ vector<clause_t> horizontal_symmetry_clauses(const vector<vector<cell_t>> X, con
 }
 
 // Multiplication lower_bound * (lower_bound + 1) * ... * upper_bound
-int conseq_multip(const int lower_bound, const int upper_bound) {
+int conseq_multip(const int &lower_bound, const int &upper_bound) {
     assert(lower_bound > 0 and upper_bound > 0 and lower_bound <= upper_bound);
 	int final_val = 1;
 	for (int i = lower_bound; i <= upper_bound; i++) final_val *= i;
@@ -334,7 +349,7 @@ int conseq_multip(const int lower_bound, const int upper_bound) {
 }
 
 // Generate all k-combinations of n elements:
-vector<vector<int>> combinations(const int n, const int k) {
+vector<vector<int>> combinations(const int &n, const int &k) {
     assert(n > 0 and k > 0 and k <= n);
     vector<vector<int>> combs;
 	int val;
@@ -367,7 +382,7 @@ vector<vector<int>> combinations(const int n, const int k) {
     return combs;
 }
 
-void print(const string ls) {
+void print(const string &ls) {
     const unsigned ls_len = ls.size();
     assert(ls_len > 0);
     const unsigned n = (unsigned)sqrt(ls_len);
@@ -382,7 +397,7 @@ void print(const string ls) {
     cout << endl;
 }
 
-void print(const cover_t cover) {
+void print(const cover_t &cover) {
     assert(cover.size() > 0);
     for (auto &pair : cover) {
         assert(pair.size() == 2);
@@ -391,7 +406,7 @@ void print(const cover_t cover) {
     cout << endl;
 }
 
-vector<cover_t> gen_covers(const unsigned n) {
+vector<cover_t> gen_covers(const unsigned &n) {
     unsigned num_row_pairs = (unsigned)(n*(n-1)/2);
     cout << "num_row_pairs : " << num_row_pairs << endl;
     vector<vector<int>> all_pairs = combinations(n, 2);
@@ -439,17 +454,17 @@ vector<cover_t> gen_covers(const unsigned n) {
     return covers;
 }
 
-string replace(const string str, const string orig_substr, const string repl_substr) {
+string replace(const string &str, const string &orig_substr, const string &repl_substr) {
     assert(not str.empty());
     size_t pos = str.find(orig_substr);
     if (pos == string::npos) return str;
     return str.substr(0, pos) + repl_substr + str.substr(pos+orig_substr.size(), str.size()-pos-orig_substr.size());
 }
 
-string generate_cnf_brown_dls_vertic_sym(const unsigned n,
-                                         const SatEncDls satencdls,
-                                         const cover_t cover,
-                                         const unsigned cover_index) {
+string generate_cnf_brown_dls_vertic_sym(const unsigned &n,
+                                         const SatEncDls &satencdls,
+                                         const cover_t &cover,
+                                         const unsigned &cover_index) {
     assert(n > 0 and n % 2 == 0);
     assert(satencdls.vars_num > 0);
     assert(satencdls.X.size() > 0);
@@ -484,10 +499,10 @@ string generate_cnf_brown_dls_vertic_sym(const unsigned n,
     return cnf_name;
 }
 
-string generate_cnf_brown_dls_horiz_sym(const unsigned n,
-                                        const SatEncDls satencdls,
-                                        const cover_t cover,
-                                        const unsigned cover_index) {
+string generate_cnf_brown_dls_horiz_sym(const unsigned &n,
+                                        const SatEncDls &satencdls,
+                                        const cover_t &cover,
+                                        const unsigned &cover_index) {
     assert(n > 0 and n % 2 == 0);
     assert(satencdls.vars_num > 0);
     assert(satencdls.X.size() > 0);
@@ -523,7 +538,7 @@ string generate_cnf_brown_dls_horiz_sym(const unsigned n,
 }
 
 // Given a SAT assignment, form the LS:
-string ls_from_sat(const vector<int> sat_assignment, const unsigned n) {
+string ls_from_sat(const vector<int> &sat_assignment, const unsigned &n) {
 	assert(sat_assignment.size() > 0);
 	assert(n > 0);
 	assert(sat_assignment.size() == n*n*n);
@@ -553,7 +568,7 @@ string ls_from_sat(const vector<int> sat_assignment, const unsigned n) {
 }
 
 // Parse satysfying assignments from a solver's output and convert them to Latin squares:
-vector<string> parse_latin_squares_from_sat_assign(const string solver_out_fname, const unsigned n) {
+vector<string> parse_latin_squares_from_sat_assign(const string &solver_out_fname, const unsigned &n) {
     assert(n > 0 and n < 11);
     assert(not solver_out_fname.empty());
 	string line;
@@ -604,10 +619,10 @@ vector<string> parse_latin_squares_from_sat_assign(const string solver_out_fname
     return ls_str_arr;
 }
 
-vector<string> find_all_dls_sat_solver(const string cnf_fname, const unsigned n) {
+vector<string> find_all_dls_sat_solver(const string &cnf_fname, const unsigned &n, const unsigned &cover_index) {
     assert(n > 0 and n < 11 and n % 2 == 0);
     // Find all satisfying assignments:
-    string solver_out_fname = "out_" + replace(cnf_fname, ".cnf", "");
+    string solver_out_fname = "out_" + replace(cnf_fname, ".cnf", "") + "_cover_" + to_string(cover_index);
     string sys_str = "clasp --models 0 --enum-mode=bt --configuration=crafty ./" + cnf_fname + " > " + solver_out_fname;
     int systemRet = system(sys_str.c_str());
     assert(systemRet >= 0);
@@ -622,13 +637,13 @@ vector<string> find_all_dls_sat_solver(const string cnf_fname, const unsigned n)
     return ls_str_arr;
 }
 
-bool is_digits(const string str)
+bool is_digits(const string &str)
 {
     return all_of(str.begin(), str.end(), ::isdigit);
 }
 
 // Read CMSs from a given file:
-set<matrix_t> read_cms(const string filename, const unsigned n) {
+set<matrix_t> read_cms(const string &filename, const unsigned &n) {
     assert(n > 0 and n < 11);
     assert(not filename.empty());
 	set<matrix_t> cms_set;
@@ -667,7 +682,7 @@ set<matrix_t> read_cms(const string filename, const unsigned n) {
 }
 
 // Normalize LS, i.e. make its main diagonal 0, 1, ..., n-1
-string normalize(const string ls) {
+string normalize(const string &ls) {
     const unsigned ls_len = ls.size();
     assert(ls_len > 0);
     const unsigned n = (unsigned)sqrt(ls_len);
@@ -685,13 +700,20 @@ string normalize(const string ls) {
         }
     }
     for (unsigned i = 0; i < n; i++) {
+        if (norm_ls[i*n + i] != (char)i + '0') {
+            cout << "ls :" << endl;
+            print(ls);
+            cout << endl;
+            cout << "norm_ls :" << endl;
+            print(norm_ls);
+        }
         assert(norm_ls[i*n + i] == (char)i + '0');
     }
     return norm_ls;
 }
 
 // Given a DLS as a string and a set of CMS, find the minimal main class representative:
-string min_main_class_repres(const string dls, const set<matrix_t> cms_set) {
+string min_main_class_repres(const string &dls, const set<matrix_t> &cms_set) {
     assert(not dls.empty());
     const unsigned dls_len = dls.size();
     assert(dls_len > 0);
@@ -721,4 +743,11 @@ string min_main_class_repres(const string dls, const set<matrix_t> cms_set) {
     }
     assert(min_repres.size() == dls_len);
     return min_repres;
+}
+
+string str_after_prefix(const string &str, const string &prefix) {
+    int found = str.find( prefix );
+    if ( found != -1 )
+	return str.substr( found + prefix.length() );
+    return "";
 }
