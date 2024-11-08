@@ -1,5 +1,5 @@
 CPP = g++
-CPPFLAGS = -O3 -std=c++20 -fopenmp
+CPPFLAGS = -O3 -DNDEBUG -std=c++20 -fopenmp
 
 sat_enumeration_brown_dls: sat_enumeration_brown_dls.o
 	${CPP} ${CPPFLAGS} sat_enumeration_brown_dls.o -o sat_enumeration_brown_dls

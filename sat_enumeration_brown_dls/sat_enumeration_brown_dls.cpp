@@ -33,7 +33,7 @@
 using namespace std;
 
 string program = "sat_enumeration_brown_dls";
-string version = "0.1.2";
+string version = "0.1.3";
 
 struct SatEncDls {
     vector<vector<cell_t>> X;
@@ -66,11 +66,12 @@ vector<string> find_all_dls_sat_solver(const string &cnf_fname, const unsigned &
                                        const unsigned &cover_index);
 bool is_digits(const string &str);
 set<matrix_t> read_cms(const string &filename, const unsigned &n);
-string min_main_class_repres(const string &dls, const set<matrix_t> &cms_set);
-string normalize(const string &ls);
+string min_main_class_repres(const string &dls, const unsigned &n, const set<matrix_t> &cms_set);
+string normalize(const string &ls, const unsigned &n);
 void print(const cover_t &cover);
 void print(const string &ls);
 string str_after_prefix(const string &str, const string &prefix);
+string current_time(const time_point_t &program_start);
 
 int main(int argc, char *argv[])
 {
@@ -129,21 +130,24 @@ int main(int argc, char *argv[])
     unsigned processed = 0;
     #pragma omp parallel for schedule(dynamic, 1)
     for (unsigned cover_index=0; cover_index < covers.size(); cover_index++) {
+        cout << "Before generating horiz CNFs " << current_time(program_start) << endl;
         string horiz_sym_cnf_fname = generate_cnf_brown_dls_horiz_sym(n, satencdls, covers[cover_index], cover_index);
         vector<string> ls_str_arr_horiz = find_all_dls_sat_solver(horiz_sym_cnf_fname, n, cover_index);
+        cout << "After parsing all horiz DLS from sat assignments " << current_time(program_start) << endl;
         if (cms_set.size() > 0) {
             for (auto &ls : ls_str_arr_horiz) {
-                string min_repres = min_main_class_repres(ls, cms_set);
+                string min_repres = min_main_class_repres(ls, n, cms_set);
                 assert(min_repres.size() == n*n);
                 main_class_repres_set.insert(min_repres);
             }
         }
+        cout << "After finding all horiz main class representatives " << current_time(program_start) << endl;
         //
         string vertic_sym_cnf_fname = generate_cnf_brown_dls_vertic_sym(n, satencdls, covers[cover_index], cover_index);
         vector<string> ls_str_arr_vertic = find_all_dls_sat_solver(vertic_sym_cnf_fname, n, cover_index);
         if (cms_set.size() > 0) {
             for (auto &ls : ls_str_arr_vertic) {
-                string min_repres = min_main_class_repres(ls, cms_set);
+                string min_repres = min_main_class_repres(ls, n, cms_set);
                 assert(min_repres.size() == n*n);
                 main_class_repres_set.insert(min_repres);
             }
@@ -158,10 +162,7 @@ int main(int argc, char *argv[])
         processed++;
         cout << "processed " << processed << " covers out of " << covers.size() << endl;
         cout << main_class_repres_set.size() << " main class representatives" << endl;
-        const time_point_t program_end = std::chrono::system_clock::now();
-        cout << "Elapsed : "
-        << std::chrono::duration_cast<std::chrono::seconds>(program_end - program_start).count()
-        << " seconds" << std::endl;
+        cout << current_time(program_start) << endl;
     }
 
     cout << main_class_repres_set.size() << " main class representatives" << endl;
@@ -180,6 +181,15 @@ int main(int argc, char *argv[])
     main_class_file.close();
 
     return 0;
+}
+
+string current_time(const time_point_t &program_start) {
+    stringstream sstream;
+    const time_point_t program_end = std::chrono::system_clock::now();
+    sstream << "Elapsed : "
+    << std::chrono::duration_cast<std::chrono::seconds>(program_end - program_start).count()
+    << " seconds";
+    return sstream.str();
 }
 
 string clause_to_str(const clause_t &cla) {
@@ -682,12 +692,9 @@ set<matrix_t> read_cms(const string &filename, const unsigned &n) {
 }
 
 // Normalize LS, i.e. make its main diagonal 0, 1, ..., n-1
-string normalize(const string &ls) {
-    const unsigned ls_len = ls.size();
-    assert(ls_len > 0);
-    const unsigned n = (unsigned)sqrt(ls_len);
+string normalize(const string &ls, const unsigned &n) {
     assert(n > 0 and n < 11);
-    string norm_ls = ls;
+    string norm_ls(n*n, '-');
     string norm_perm(n, '-');
     // Element in permutation is i if its index is i-th element in main diag:
     for (unsigned i = 0; i < n; i++) {
@@ -706,14 +713,11 @@ string normalize(const string &ls) {
 }
 
 // Given a DLS as a string and a set of CMS, find the minimal main class representative:
-string min_main_class_repres(const string &dls, const set<matrix_t> &cms_set) {
-    assert(not dls.empty());
-    const unsigned dls_len = dls.size();
-    assert(dls_len > 0);
-    const unsigned n = (unsigned)sqrt(dls_len);
+string min_main_class_repres(const string &dls, const unsigned &n, const set<matrix_t> &cms_set) {
     assert(n > 0 and n < 11);
+    assert(dls.size() == n*n);
     assert(cms_set.size() > 0);
-    string new_dls(dls_len, '-');
+    string new_dls(n*n, '-');
     string norm_dls = "";
     string min_repres = "";
     for (auto cms : cms_set) {
@@ -729,12 +733,12 @@ string min_main_class_repres(const string &dls, const set<matrix_t> &cms_set) {
             }
         }
         // Normalize:
-        norm_dls = normalize(new_dls);
+        norm_dls = normalize(new_dls, n);
         if (min_repres == "" or norm_dls < min_repres) {
             min_repres = norm_dls;
         }
     }
-    assert(min_repres.size() == dls_len);
+    assert(min_repres.size() == n*n);
     return min_repres;
 }
 
