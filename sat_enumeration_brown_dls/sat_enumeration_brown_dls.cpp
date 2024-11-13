@@ -33,7 +33,7 @@
 using namespace std;
 
 string program = "sat_enumeration_brown_dls";
-string version = "0.1.3";
+string version = "0.1.4";
 
 struct SatEncDls {
     vector<vector<cell_t>> X;
@@ -125,15 +125,19 @@ int main(int argc, char *argv[])
 
     vector<cover_t> covers = gen_covers(n);
 
+    cout << "After covers generation " << current_time(program_start) << endl;
+
     // For each cover, generate a horizontal-symmetry and a vertical-symmetry CNF:
     set<string> main_class_repres_set;
     unsigned processed = 0;
+    bool isRuntimeReported = false;
     #pragma omp parallel for schedule(dynamic, 1)
     for (unsigned cover_index=0; cover_index < covers.size(); cover_index++) {
-        cout << "Before generating horiz CNFs " << current_time(program_start) << endl;
         string horiz_sym_cnf_fname = generate_cnf_brown_dls_horiz_sym(n, satencdls, covers[cover_index], cover_index);
         vector<string> ls_str_arr_horiz = find_all_dls_sat_solver(horiz_sym_cnf_fname, n, cover_index);
-        cout << "After parsing all horiz DLS from sat assignments " << current_time(program_start) << endl;
+        if (not isRuntimeReported and ls_str_arr_horiz.size() > 0) {
+            cout << "After parsing all horiz DLS from sat assignments " << current_time(program_start) << endl;
+        }
         if (cms_set.size() > 0) {
             for (auto &ls : ls_str_arr_horiz) {
                 string min_repres = min_main_class_repres(ls, n, cms_set);
@@ -141,7 +145,10 @@ int main(int argc, char *argv[])
                 main_class_repres_set.insert(min_repres);
             }
         }
-        cout << "After finding all horiz main class representatives " << current_time(program_start) << endl;
+        if (not isRuntimeReported and ls_str_arr_horiz.size() > 0) {
+            cout << "After finding all horiz main class representatives " << current_time(program_start) << endl;
+            isRuntimeReported = true;
+        }
         //
         string vertic_sym_cnf_fname = generate_cnf_brown_dls_vertic_sym(n, satencdls, covers[cover_index], cover_index);
         vector<string> ls_str_arr_vertic = find_all_dls_sat_solver(vertic_sym_cnf_fname, n, cover_index);
