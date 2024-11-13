@@ -28,7 +28,7 @@ using namespace std;
 #define matrix_t vector<row_t>
 
 string prog = "dls_main_class_enumeration";
-string version = "0.2.4";
+string version = "0.2.5";
 
 void print(matrix_t matrix) {
     for (auto &row : matrix) {
@@ -625,14 +625,19 @@ int main(int argc, char *argv[]) {
     cout << "Elapsed " << std::chrono::duration_cast<std::chrono::seconds> (cur_point - start_point).count() << " sec" << std::endl;
 
     // Find all distinct ESODLS with ascending first row:
+    cout << "Generaring DLS with ascending first row" << endl;
     set<matrix_t> dls_ascending_row_set;
-    for (auto &dls : dls_arr) {
+    k=0;
+    for (auto &dls : dls_main_class_repres_set) {
         vector<matrix_t> dls_ascending_row = find_all_dls_with_ascending_row_from_main_class(dls, esodls_cms_set);
         for (auto &dls_asc_row : dls_ascending_row) {
             dls_ascending_row_set.insert(dls_asc_row);
         }
+        k++;
+        if (k % 1000 == 0) cout << k << " main classes out of " << dls_main_class_repres_set.size() << " processed" << endl;
     }
     cout << dls_ascending_row_set.size() << " DLS with ascending first row" << endl;
+    dls_ascending_row_set.clear();
 
     cur_point = std::chrono::steady_clock::now();
     cout << "Elapsed " << std::chrono::duration_cast<std::chrono::seconds> (cur_point - start_point).count() << " sec" << std::endl;
