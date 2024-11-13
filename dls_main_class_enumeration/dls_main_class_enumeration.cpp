@@ -24,17 +24,17 @@
 
 using namespace std;
 
-#define row_t vector<short int>
+#define row_t vector<int8_t>
 #define matrix_t vector<row_t>
 
 string prog = "dls_main_class_enumeration";
-string version = "0.2.5";
+string version = "0.2.6";
 
 void print(matrix_t matrix) {
     for (auto &row : matrix) {
         for (auto &x : row) {
             if (x >= 0 and x < 10) cout << "0";
-            cout << x << " ";
+            cout << to_string(x) << " ";
         }
         cout << endl;
     }
@@ -46,42 +46,37 @@ bool is_digits(const string str)
     return all_of(str.begin(), str.end(), ::isdigit);
 }
 
-short int strtoi(string s) {
-	assert(not s.empty());
-	short int x = atoi(s.c_str());
-	return x;
-}
-
 bool is_diag_cms(const matrix_t cms) {
-    const unsigned n = cms.size();
+    const int8_t n = cms.size();
     assert(n > 0 and n < 11); 
-    vector<unsigned> cms_values_num(n*n, 0);
+    vector<int8_t> cms_values_num(n*n, 0);
     // Make the correct array of two diagonals:
     row_t sorted_two_diag_dls_cms(n*2, -1);
-    for (unsigned i=0; i<n; i++) {
+    for (int8_t i=0; i<n; i++) {
         sorted_two_diag_dls_cms[i] = i*n + i;
         sorted_two_diag_dls_cms[n + i] = (n-1-i)*n + i;
     }
     sort(sorted_two_diag_dls_cms.begin(), sorted_two_diag_dls_cms.end());
     row_t two_diag_dls_cms(2*n, -1);
-    for (unsigned i=0; i<n; i++) {
+    for (int8_t i=0; i<n; i++) {
         two_diag_dls_cms[i] = cms[i][i];
         two_diag_dls_cms[n + i] = cms[n-1-i][i];
-        for (unsigned j=0; j<n; j++) {
+        for (int8_t j=0; j<n; j++) {
+            //cout << cms[i][j] << " " << cms_values_num.size() << endl;
             assert(cms[i][j] < cms_values_num.size());
             cms_values_num[cms[i][j]]++;
         }
     }
     sort(two_diag_dls_cms.begin(), two_diag_dls_cms.end());
     if (two_diag_dls_cms != sorted_two_diag_dls_cms) return false;
-    for (unsigned i=0; i<n; i++) {
+    for (int8_t i=0; i<n; i++) {
         if (cms_values_num[i] == 0) return false;
     }
     return true;
 }
 
 // Read CMSs from a given file:
-set<matrix_t> read_cms(const string filename, const unsigned n){
+set<matrix_t> read_cms(const string filename, const int8_t n){
 	set<matrix_t> cms_set;
 	ifstream in;
 	in.open(filename);
@@ -103,7 +98,7 @@ set<matrix_t> read_cms(const string filename, const unsigned n){
                     tmp.clear();
                     break;
                 }
-				tmp.push_back(strtoi(word));
+				tmp.push_back(atoi(word.c_str()));
             }
             if (not tmp.empty()) cms.push_back(tmp);
 		}
@@ -112,7 +107,7 @@ set<matrix_t> read_cms(const string filename, const unsigned n){
 	return cms_set;
 }
 
-vector<matrix_t> read_dls_string(const string fname, const unsigned n) {
+vector<matrix_t> read_dls_string(const string fname, const int8_t n) {
     assert(fname != "");
     vector<matrix_t> dls_set;
 
@@ -124,7 +119,7 @@ vector<matrix_t> read_dls_string(const string fname, const unsigned n) {
         if (str.size() != n*n) continue;
         matrix_t dls;
         row_t row;
-        for (unsigned i=0; i<str.size(); i++) {
+        for (int8_t i=0; i<str.size(); i++) {
             row.push_back(std::stoi(str.substr(i,1))); // row.push_back(std::stoi(str[i]));
             if (row.size() == n) {
                 dls.push_back(row);
@@ -139,18 +134,18 @@ vector<matrix_t> read_dls_string(const string fname, const unsigned n) {
 
 // Normalize matrix (LS or CMS), i.e. make its main diagonal 0, 1, ..., n-1
 matrix_t normalize_main_diag(const matrix_t mtrx) {
-    const unsigned n = mtrx.size();
+    const int8_t n = mtrx.size();
     assert(n > 0 and n < 11);
     matrix_t norm_mtrx = mtrx;
-    vector<unsigned> norm_perm(n, 0);
-    for (unsigned i = 0; i < n; i++) norm_perm[mtrx[i][i]] = i;
+    vector<int8_t> norm_perm(n, 0);
+    for (int8_t i = 0; i < n; i++) norm_perm[mtrx[i][i]] = i;
     for (auto &row : norm_mtrx) {
-        for (unsigned i = 0; i < n; i++) {
+        for (int8_t i = 0; i < n; i++) {
             if (row[i] == -1) continue;
             row[i] = norm_perm[row[i]];
         }
     }
-    for (unsigned i = 0; i < n; i++) {
+    for (int8_t i = 0; i < n; i++) {
         assert(norm_mtrx[i][i] == i);
     }
     return norm_mtrx;
@@ -158,61 +153,61 @@ matrix_t normalize_main_diag(const matrix_t mtrx) {
 
 // Normalize matrix (LS or CMS), i.e. make its first row 0, 1, ..., n-1
 matrix_t normalize_first_row(const matrix_t mtrx) {
-    const unsigned n = mtrx.size();
+    const int8_t n = mtrx.size();
     assert(n > 0 and n < 11);
     matrix_t norm_mtrx = mtrx;
-    vector<unsigned> norm_perm(n, 0);
-    for (unsigned i = 0; i < n; i++) norm_perm[mtrx[0][i]] = i;
+    vector<int8_t> norm_perm(n, 0);
+    for (int8_t i = 0; i < n; i++) norm_perm[mtrx[0][i]] = i;
     for (auto &row : norm_mtrx) {
-        for (unsigned i = 0; i < n; i++) {
+        for (int8_t i = 0; i < n; i++) {
             if (row[i] == -1) continue;
             row[i] = norm_perm[row[i]];
         }
     }
-    for (unsigned i = 0; i < n; i++) {
+    for (int8_t i = 0; i < n; i++) {
         assert(norm_mtrx[0][i] == i);
     }
     return norm_mtrx;
 }
 
-void swap_rows(matrix_t &dls, const unsigned i1, const unsigned i2) {
-    const unsigned n = dls.size();
+void swap_rows(matrix_t &dls, const int8_t i1, const int8_t i2) {
+    const int8_t n = dls.size();
     assert(n > 0 and n < 11);
     assert(i1 < n and i2 < n);
     swap(dls[i1], dls[i2]);
 }
 
-void swap_columns(matrix_t &dls, const unsigned j1, const unsigned j2) {
-     const unsigned n = dls.size();
+void swap_columns(matrix_t &dls, const int8_t j1, const int8_t j2) {
+    const int8_t n = dls.size();
     assert(n > 0 and n < 11);
     assert(j1 < n and j1 < n);
-    for (unsigned i = 0; i < n; i++) swap(dls[i][j1], dls[i][j2]);
+    for (int8_t i = 0; i < n; i++) swap(dls[i][j1], dls[i][j2]);
 }
 
 set<matrix_t> rotate(const matrix_t dls) {
-    const unsigned n = dls.size();
+    const int8_t n = dls.size();
 
     assert(n > 0 and n < 11); 
     set<matrix_t> rotate_dls_set;
 
     // 90 degree rotation:
     matrix_t one_rotate_dls = dls;
-    for (unsigned i = 0; i < n; i++) {
-        for (unsigned j = 0; j < n; j++) {
+    for (int8_t i = 0; i < n; i++) {
+        for (int8_t j = 0; j < n; j++) {
             one_rotate_dls[j][n-1-i] = dls[i][j];
         }
     }
 
     matrix_t two_rotate_dls = one_rotate_dls;
-    for (unsigned i = 0; i < n; i++) {
-        for (unsigned j = 0; j < n; j++) {
+    for (int8_t i = 0; i < n; i++) {
+        for (int8_t j = 0; j < n; j++) {
             two_rotate_dls[j][n-1-i] = one_rotate_dls[i][j];
         }
     }
 
     matrix_t three_rotate_dls = two_rotate_dls;
-    for (unsigned i = 0; i < n; i++) {
-        for (unsigned j = 0; j < n; j++) {
+    for (int8_t i = 0; i < n; i++) {
+        for (int8_t j = 0; j < n; j++) {
             three_rotate_dls[j][n-1-i] = two_rotate_dls[i][j];
         }
     }
@@ -232,46 +227,46 @@ set<matrix_t> rotate(const matrix_t dls) {
 }
 
 set<matrix_t> reflect(const matrix_t dls) {
-    const unsigned n = dls.size();
+    const int8_t n = dls.size();
     assert(n > 0 and n < 11); 
     set<matrix_t> reflect_dls_set;
 
     // Reflect horizontally across the y-axis:
     matrix_t reflect_horiz_dls = dls;
-    unsigned k1 = (unsigned)floor((double)n/2);
-    unsigned k2 = (unsigned)ceil((double)n/2);
-    for (unsigned i = 0; i < n; i++) {
-        for (unsigned j = 0; j < k1; j++) {
+    int8_t k1 = (int8_t)floor((double)n/2);
+    int8_t k2 = (int8_t)ceil((double)n/2);
+    for (int8_t i = 0; i < n; i++) {
+        for (int8_t j = 0; j < k1; j++) {
             reflect_horiz_dls[i][j] = dls[i][n-j-1];
         }
-        for (unsigned j = k2; j < n; j++) {
+        for (int8_t j = k2; j < n; j++) {
             reflect_horiz_dls[i][j] = dls[i][k1 - 1 - (j-k2)];
         }
     }
 
     // Reflect vertically across the x-axis:
     matrix_t reflect_vert_dls = dls;
-    for (unsigned i = 0; i < n; i++) {
-        for (unsigned j = 0; j < k1; j++) {
+    for (int8_t i = 0; i < n; i++) {
+        for (int8_t j = 0; j < k1; j++) {
             reflect_vert_dls[j][i] = dls[n-j-1][i];
         }
-        for (unsigned j = k2; j < n; j++) {
+        for (int8_t j = k2; j < n; j++) {
             reflect_vert_dls[j][i] = dls[k1 - 1 - (j-k2)][i];
         }
     }
 
     // Reflect across the main diagonal == transposition:
     matrix_t reflect_maindiag_dls = dls;
-    for (unsigned i = 1; i < n; i++) {
-        for (unsigned j = 0; j < i; j++) {
+    for (int8_t i = 1; i < n; i++) {
+        for (int8_t j = 0; j < i; j++) {
             swap(reflect_maindiag_dls[i][j], reflect_maindiag_dls[j][i]);
         }
     }
 
     // Reflect across the main antidiagonal:
     matrix_t reflect_antidiag_dls = dls;
-    for (unsigned i = 0; i < n-1; i++) {
-        for (unsigned j = 0; j < n-1-i; j++) {
+    for (int8_t i = 0; i < n-1; i++) {
+        for (int8_t j = 0; j < n-1-i; j++) {
             swap(reflect_antidiag_dls[i][j], reflect_antidiag_dls[n-1-j][n-1-i]);
         }
     }
@@ -312,16 +307,17 @@ set<matrix_t> reflect_rotate(const matrix_t cms) {
 // There are 2^(floor(n/2)) such variants where n is the order of a given
 // diagonal Latin square.
 set<matrix_t> tworows_twocols_symm(const matrix_t dls) {
-    const unsigned n = dls.size();
+    const int8_t n = dls.size();
     assert(n > 0 and n < 11); 
     set<matrix_t> tworows_twocols_symm_dls_set;
-    const unsigned subset_num = (unsigned)pow(2,n/2);
-    for (unsigned i=0; i < subset_num; i++) {
-        bitset<5> b{i};
+    const int8_t subset_num = (int8_t)pow(2,n/2);
+    for (int8_t i=0; i < subset_num; i++) {
+        unsigned long long ull = (unsigned long long)i;
+        bitset<5> b{ull};
         string str_bit_repres = b.to_string();
         str_bit_repres = str_bit_repres.substr(5 - n/2, n/2);
         matrix_t symm_dls = dls;
-        for (unsigned row_ind = 0; row_ind < str_bit_repres.size(); row_ind++) {
+        for (int8_t row_ind = 0; row_ind < str_bit_repres.size(); row_ind++) {
             assert(row_ind < n/2);
             if (str_bit_repres[row_ind] == '1') {
                 // Swap two rows symmetrically:
@@ -341,23 +337,23 @@ set<matrix_t> tworows_twocols_symm(const matrix_t dls) {
 // There are (floor(n/2))! such variants where n is the order of a given
 // diagonal Latin square.
 set<matrix_t> fourrows_fourcols_symm(const matrix_t dls) {
-    const unsigned n = dls.size();
+    const int8_t n = dls.size();
     assert(n > 0 and n < 11); 
     set<matrix_t> fourrows_fourcols_symm_dls_set;
-    vector<unsigned> cur_indices;
-    for (unsigned i=0; i<n/2; i++) cur_indices.push_back(i);
-    unsigned perm_num = 0;
+    vector<int8_t> cur_indices;
+    for (int8_t i=0; i<n/2; i++) cur_indices.push_back(i);
+    unsigned long long perm_num = 0;
     do {
         matrix_t symm_dls_temp = dls;
         // Assign rows:
-        for (unsigned i=0; i < cur_indices.size(); i++) {
+        for (int8_t i=0; i < cur_indices.size(); i++) {
             symm_dls_temp[i] = dls[cur_indices[i]];
             symm_dls_temp[n-1-i] = dls[n-1-cur_indices[i]];
         }
         // Assign columns:
         matrix_t symm_dls = symm_dls_temp;
-        for (unsigned i=0; i < cur_indices.size(); i++) {
-            for (unsigned j = 0; j < n; j++) {
+        for (int8_t i=0; i < cur_indices.size(); i++) {
+            for (int8_t j = 0; j < n; j++) {
                 symm_dls[j][i] = symm_dls_temp[j][cur_indices[i]];
                 symm_dls[j][n-1-i] = symm_dls_temp[j][n-1-cur_indices[i]];
             }
@@ -371,7 +367,7 @@ set<matrix_t> fourrows_fourcols_symm(const matrix_t dls) {
 }
 
 set<matrix_t> reflect_rotate_symm(const matrix_t cms) {
-    const unsigned n = cms.size();
+    const int8_t n = cms.size();
     assert(n > 0 and n < 11); 
     set<matrix_t> cms_set;
     set<matrix_t> tworows_twocols_symm_cms_set = tworows_twocols_symm(cms);
@@ -388,13 +384,13 @@ set<matrix_t> reflect_rotate_symm(const matrix_t cms) {
     return cms_set;
 }
 
-vector<matrix_t> generate_x_based_basic_partial_dls(const unsigned n) {
+vector<matrix_t> generate_x_based_basic_partial_dls(const int8_t n) {
     assert(n > 0 and n < 11);
     vector<matrix_t> x_based_basic_partial_dls;
-    vector<unsigned> main_diag;
-    for (unsigned i=0; i<n; i++) main_diag.push_back(i);
-    vector<unsigned> main_antidiag;
-    for (unsigned i=0; i<n; i++) main_antidiag.push_back(i);
+    vector<int8_t> main_diag;
+    for (int8_t i=0; i<n; i++) main_diag.push_back(i);
+    vector<int8_t> main_antidiag;
+    for (int8_t i=0; i<n; i++) main_antidiag.push_back(i);
     do {
         bool is_diag = true;
         if (n % 2 == 1) {
@@ -402,7 +398,7 @@ vector<matrix_t> generate_x_based_basic_partial_dls(const unsigned n) {
                 is_diag = false;
                 continue;
             }
-            for (unsigned i=0; i<n; i++) {
+            for (int8_t i=0; i<n; i++) {
                 if (i == n/2) continue;
                 if (main_diag[i] == main_antidiag[i] or main_diag[i] == main_antidiag[n-1-i]) {
                     is_diag = false;
@@ -411,7 +407,7 @@ vector<matrix_t> generate_x_based_basic_partial_dls(const unsigned n) {
             }
         }
         else {
-            for (unsigned i=0; i<n; i++) {
+            for (int8_t i=0; i<n; i++) {
                 if (main_diag[i] == main_antidiag[i] or main_diag[i] == main_antidiag[n-1-i]) {
                     is_diag = false;
                     continue;
@@ -420,7 +416,7 @@ vector<matrix_t> generate_x_based_basic_partial_dls(const unsigned n) {
         }
         if (is_diag) {
             matrix_t x_based_partial_dls(n,row_t(n,-1));
-            for (unsigned i=0; i<n; i++) {
+            for (int8_t i=0; i<n; i++) {
                 x_based_partial_dls[i][i] = main_diag[i];
                 x_based_partial_dls[n-1-i][i] = main_antidiag[i];
             }
@@ -431,29 +427,27 @@ vector<matrix_t> generate_x_based_basic_partial_dls(const unsigned n) {
 }
 
 matrix_t find_main_class_repres_all_cms(const matrix_t partial_dls, set<matrix_t> cms_set) {
-    const unsigned n = partial_dls.size();
+    const int8_t n = partial_dls.size();
     assert(n > 0 and n < 11);
     matrix_t new_partial_dls(n, row_t(n,-1));
     matrix_t norm_partial_dls(n, row_t(n,-1));
     matrix_t minimal_main_class_repres;
-    vector<short int> minimal_one_dim_partial_dls_repres;
-    //cout << "basic x :" << endl;
-    //print(x_based_partial_dls);
+    vector<int8_t> minimal_one_dim_partial_dls_repres;
     for (auto cms : cms_set) {
-        for (unsigned i=0; i<n; i++) {
-            for (unsigned j=0; j<n; j++) {
-                const unsigned i2 = cms[i][j] / n;
-                const unsigned j2 = cms[i][j] % n;
+        for (int8_t i=0; i<n; i++) {
+            for (int8_t j=0; j<n; j++) {
+                const int8_t i2 = cms[i][j] / n;
+                const int8_t j2 = cms[i][j] % n;
                 new_partial_dls[i2][j2] = partial_dls[i][j];
             }
         }
         // Normalize:
         norm_partial_dls = normalize_main_diag(new_partial_dls);
         // Get the antidiag:
-        vector<short int> one_dim_partial_dls_repres(n*n, -1);
-        unsigned k=0;
-        for (unsigned i=0; i<n; i++) {
-            for (unsigned j=0; j<n; j++) {
+        vector<int8_t> one_dim_partial_dls_repres(n*n, -1);
+        int8_t k=0;
+        for (int8_t i=0; i<n; i++) {
+            for (int8_t j=0; j<n; j++) {
                 if (norm_partial_dls[i][j] == -1) continue;
                 assert(k < one_dim_partial_dls_repres.size());
                 one_dim_partial_dls_repres[k++] = norm_partial_dls[i][j];
@@ -470,16 +464,16 @@ matrix_t find_main_class_repres_all_cms(const matrix_t partial_dls, set<matrix_t
 }
 
 vector<matrix_t> find_all_dls_with_ascending_row_from_main_class(const matrix_t partial_dls, set<matrix_t> cms_set) {
-    const unsigned n = partial_dls.size();
+    const int8_t n = partial_dls.size();
     assert(n > 0 and n < 11);
     matrix_t new_partial_dls(n, row_t(n,-1));
     matrix_t norm_partial_dls(n, row_t(n,-1));
     vector<matrix_t> dls_ascending_row;
     for (auto cms : cms_set) {
-        for (unsigned i=0; i<n; i++) {
-            for (unsigned j=0; j<n; j++) {
-                const unsigned i2 = cms[i][j] / n;
-                const unsigned j2 = cms[i][j] % n;
+        for (int8_t i=0; i<n; i++) {
+            for (int8_t j=0; j<n; j++) {
+                const int8_t i2 = cms[i][j] / n;
+                const int8_t j2 = cms[i][j] % n;
                 new_partial_dls[i2][j2] = partial_dls[i][j];
             }
         }
@@ -492,14 +486,13 @@ vector<matrix_t> find_all_dls_with_ascending_row_from_main_class(const matrix_t 
 
 set<matrix_t> find_main_class_repres_set(vector<matrix_t> dls_arr, set<matrix_t> cms_set) {
     set<matrix_t> main_class_repres_set;
-    unsigned k=0;
-    unsigned max_main_class_repres_set_size = 0;
+    unsigned long long k=0;
+    unsigned long long max_main_class_repres_set_size = 0;
     for (auto &dls : dls_arr) {
         matrix_t main_class_repres = find_main_class_repres_all_cms(dls, cms_set);
         main_class_repres_set.insert(main_class_repres);
         if (main_class_repres_set.size() > max_main_class_repres_set_size) {
             max_main_class_repres_set_size = main_class_repres_set.size();
-            //cout << "main_class_repres_set size : " << main_class_repres_set.size() << endl;
         }
         k++;
         if (k % 10000 == 0) cout << k << " out of " << dls_arr.size() << " processed" << endl;
@@ -509,7 +502,7 @@ set<matrix_t> find_main_class_repres_set(vector<matrix_t> dls_arr, set<matrix_t>
 
 int main(int argc, char *argv[]) {
     vector<string> argv_str;
-    for (unsigned i=0; i<argc; i++) argv_str.push_back(argv[i]);
+    for (int8_t i=0; i<argc; i++) argv_str.push_back(argv[i]);
     if ((argc == 2) and (argv_str[1] == "-v")) {
         cout << prog << " of version " << version << endl;
         return 1;
@@ -518,11 +511,12 @@ int main(int argc, char *argv[]) {
         cout << "Usage : " << prog << " DLS-order [DLS-file] [CMS-file]" << endl;
         return 1;
     }
-    unsigned n;
-    istringstream(argv_str[1]) >> n;
+    int8_t n;
+    //istringstream(argv_str[1]) >> n; // doesn't work for int8_t
+    n = atoi(argv_str[1].c_str());
     assert(n > 0 and n < 11);
     cout << prog << " of version " << version << " is running" << endl;
-    cout << "DLS-order : " << n << endl;
+    cout << "DLS-order : " << to_string(n) << endl;
     string dls_fname = "";
     string cms_fname = "";
     if (argc > 2) {
@@ -542,8 +536,8 @@ int main(int argc, char *argv[]) {
     cout << "Elapsed " << std::chrono::duration_cast<std::chrono::seconds> (cur_point - start_point).count() << " sec" << std::endl;
 
     matrix_t trivial_cms(n,row_t(n, 0));
-    for (unsigned i=0; i<n; i++) {
-        for (unsigned j=0; j<n; j++) {
+    for (int8_t i=0; i<n; i++) {
+        for (int8_t j=0; j<n; j++) {
             trivial_cms[i][j] = i*n + j;
         }
     }
@@ -558,19 +552,19 @@ int main(int argc, char *argv[]) {
     cout << "Elapsed " << std::chrono::duration_cast<std::chrono::seconds> (cur_point - start_point).count() << " sec" << std::endl;
 
     stringstream sstream_cms;
-    sstream_cms << "cms_esodls_n" << n << "_new.txt";
+    sstream_cms << "cms_esodls_n" << to_string(n) << "_new.txt";
     string out_cms_filename = sstream_cms.str();
     cout << "Writing ESODLS CMS to file " << out_cms_filename << endl;
     ofstream out_cms_file(out_cms_filename, ios_base::out);
-    out_cms_file << "Writing " << esodls_cms_set.size() << " ESODLS CMS of order " << n << endl;
-    unsigned k = 0;
+    out_cms_file << "Writing " << esodls_cms_set.size() << " ESODLS CMS of order " << to_string(n) << endl;
+    unsigned long long k = 0;
     for (auto &cms : esodls_cms_set) {
         out_cms_file << "# " << k << endl;
         for (auto &row : cms) {
-            for (unsigned j=0; j<row.size(); j++) {
+            for (int8_t j=0; j<row.size(); j++) {
                 assert(row[j] >= 0 and row[j] < n*n);
                 if (row[j] < 10) out_cms_file << " ";
-                out_cms_file << row[j];
+                out_cms_file << to_string(row[j]);
                 if (j < row.size() - 1) out_cms_file << " ";
             }
             out_cms_file << endl;
@@ -605,14 +599,14 @@ int main(int argc, char *argv[]) {
     set<matrix_t> dls_main_class_repres_set = find_main_class_repres_set(dls_arr, esodls_cms_set);
     cout << "DLS main classes : " << dls_main_class_repres_set.size() << endl;
     stringstream sstream_main_class;
-    sstream_main_class << "esodls_main_class_repres_n" << n << ".txt";
+    sstream_main_class << "esodls_main_class_repres_n" << to_string(n) << ".txt";
     string main_class_fname = sstream_main_class.str();
     cout << "Writing DLS main class representatives to file " << main_class_fname << endl;
     ofstream main_class_file(main_class_fname, ios_base::out);
     for (auto &x : dls_main_class_repres_set) {
-        for (unsigned i=0; i<n; i++) {
-            for (unsigned j=0; j<n; j++) {
-                main_class_file << x[i][j];
+        for (int8_t i=0; i<n; i++) {
+            for (int8_t j=0; j<n; j++) {
+                main_class_file << to_string(x[i][j]);
                 if (j != n - 1) main_class_file << " ";
             }
             main_class_file << endl;
@@ -653,17 +647,17 @@ int main(int argc, char *argv[]) {
     cur_point = std::chrono::steady_clock::now();
     cout << "Elapsed " << std::chrono::duration_cast<std::chrono::seconds> (cur_point - start_point).count() << " sec" << std::endl;
     stringstream sstream;
-    sstream << "x_fillings_n" << n << "_new.txt";
+    sstream << "x_fillings_n" << to_string(n) << "_new.txt";
     string x_fname = sstream.str();
     cout << "Writing X-based partial fillings to file " << x_fname << endl;
     ofstream ofile(x_fname, ios_base::out);
     k = 0;
     for (auto &x_fill : x_based_main_class_repres_set) {
         ofile << "X-based filling " << k << ":\n";
-        for (unsigned i=0; i < n; i++) {
-            for (unsigned j=0; j < n; j++) {
+        for (int8_t i=0; i < n; i++) {
+            for (int8_t j=0; j < n; j++) {
                 if (x_fill[i][j] == -1) ofile << "-";
-                else ofile << x_fill[i][j];
+                else ofile << to_string(x_fill[i][j]);
                 if (j < n-1) ofile << " ";
             }
             ofile << "\n";
