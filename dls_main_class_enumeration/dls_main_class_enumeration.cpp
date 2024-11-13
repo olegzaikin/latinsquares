@@ -2,9 +2,9 @@
 // Author: Oleg Zaikin
 // E-mail: oleg.zaikin@icc.ru
 //
-// For a given order n, a file with DLS, and a file of ESODLS CMS,
-// generate all main classes for DLS, and then generate all ESODLS CMS of
-// order n and compare them with that from the file.
+// For a given order n, a file with all DLS normalized by the main diagonal,
+// and a file of all ESODLS CMS, generate all main classes for DLS, and then
+// generate all ESODLS CMS of order n and compare them with that from the file.
 // 
 // Example:
 //   ./dls_main_class_enumeration 7 ./dls_n7 ./cms_n7
@@ -28,7 +28,7 @@ using namespace std;
 #define matrix_t vector<row_t>
 
 string prog = "dls_main_class_enumeration";
-string version = "0.2.3";
+string version = "0.2.4";
 
 void print(matrix_t matrix) {
     for (auto &row : matrix) {
@@ -138,7 +138,7 @@ vector<matrix_t> read_dls_string(const string fname, const unsigned n) {
 }
 
 // Normalize matrix (LS or CMS), i.e. make its main diagonal 0, 1, ..., n-1
-matrix_t normalize(const matrix_t mtrx) {
+matrix_t normalize_main_diag(const matrix_t mtrx) {
     const unsigned n = mtrx.size();
     assert(n > 0 and n < 11);
     matrix_t norm_mtrx = mtrx;
@@ -150,11 +150,27 @@ matrix_t normalize(const matrix_t mtrx) {
             row[i] = norm_perm[row[i]];
         }
     }
-    //cout << "*" << endl;
-    //print(mtrx);
-    //print(norm_mtrx);
     for (unsigned i = 0; i < n; i++) {
         assert(norm_mtrx[i][i] == i);
+    }
+    return norm_mtrx;
+}
+
+// Normalize matrix (LS or CMS), i.e. make its first row 0, 1, ..., n-1
+matrix_t normalize_first_row(const matrix_t mtrx) {
+    const unsigned n = mtrx.size();
+    assert(n > 0 and n < 11);
+    matrix_t norm_mtrx = mtrx;
+    vector<unsigned> norm_perm(n, 0);
+    for (unsigned i = 0; i < n; i++) norm_perm[mtrx[0][i]] = i;
+    for (auto &row : norm_mtrx) {
+        for (unsigned i = 0; i < n; i++) {
+            if (row[i] == -1) continue;
+            row[i] = norm_perm[row[i]];
+        }
+    }
+    for (unsigned i = 0; i < n; i++) {
+        assert(norm_mtrx[0][i] == i);
     }
     return norm_mtrx;
 }
@@ -414,7 +430,7 @@ vector<matrix_t> generate_x_based_basic_partial_dls(const unsigned n) {
     return x_based_basic_partial_dls;
 }
 
-matrix_t apply_all_cms(const matrix_t partial_dls, set<matrix_t> cms_set) {
+matrix_t find_main_class_repres_all_cms(const matrix_t partial_dls, set<matrix_t> cms_set) {
     const unsigned n = partial_dls.size();
     assert(n > 0 and n < 11);
     matrix_t new_partial_dls(n, row_t(n,-1));
@@ -430,17 +446,9 @@ matrix_t apply_all_cms(const matrix_t partial_dls, set<matrix_t> cms_set) {
                 const unsigned j2 = cms[i][j] % n;
                 new_partial_dls[i2][j2] = partial_dls[i][j];
             }
-            /*
-            assert(i2 == j2 or i2 == n-1-j2 or j2 == n-1-i2);
-            new_x_based_partial_dls[i2][j2] = x_based_partial_dls[i][i];
-            i2 = cms[n-1-i][i] / n;
-            j2 = cms[n-1-i][i] % n;
-            assert(i2 == j2 or i2 == n-1-j2 or j2 == n-1-i2);
-            new_x_based_partial_dls[i2][j2] = x_based_partial_dls[n-1-i][i];
-            */
         }
         // Normalize:
-        norm_partial_dls = normalize(new_partial_dls);
+        norm_partial_dls = normalize_main_diag(new_partial_dls);
         // Get the antidiag:
         vector<short int> one_dim_partial_dls_repres(n*n, -1);
         unsigned k=0;
@@ -452,11 +460,7 @@ matrix_t apply_all_cms(const matrix_t partial_dls, set<matrix_t> cms_set) {
             }
         }
         one_dim_partial_dls_repres.resize(k);
-        //cout << "*" << endl;
-        //print(norm_new_x_based_partial_dls);
-        //for (auto &x : two_diags_rows_by_rows) cout << x << " ";
-        //cout << endl;
-        
+
         if (minimal_one_dim_partial_dls_repres.empty() or one_dim_partial_dls_repres < minimal_one_dim_partial_dls_repres) {
             minimal_main_class_repres = norm_partial_dls;
             minimal_one_dim_partial_dls_repres = one_dim_partial_dls_repres;
@@ -465,12 +469,33 @@ matrix_t apply_all_cms(const matrix_t partial_dls, set<matrix_t> cms_set) {
     return minimal_main_class_repres;
 }
 
-set<matrix_t> find_main_class_repres(vector<matrix_t> dls_arr, set<matrix_t> cms_set) {
+vector<matrix_t> find_all_dls_with_ascending_row_from_main_class(const matrix_t partial_dls, set<matrix_t> cms_set) {
+    const unsigned n = partial_dls.size();
+    assert(n > 0 and n < 11);
+    matrix_t new_partial_dls(n, row_t(n,-1));
+    matrix_t norm_partial_dls(n, row_t(n,-1));
+    vector<matrix_t> dls_ascending_row;
+    for (auto cms : cms_set) {
+        for (unsigned i=0; i<n; i++) {
+            for (unsigned j=0; j<n; j++) {
+                const unsigned i2 = cms[i][j] / n;
+                const unsigned j2 = cms[i][j] % n;
+                new_partial_dls[i2][j2] = partial_dls[i][j];
+            }
+        }
+        // Normalize by the first row:
+        norm_partial_dls = normalize_first_row(new_partial_dls);
+        dls_ascending_row.push_back(norm_partial_dls);
+    }
+    return dls_ascending_row;
+}
+
+set<matrix_t> find_main_class_repres_set(vector<matrix_t> dls_arr, set<matrix_t> cms_set) {
     set<matrix_t> main_class_repres_set;
     unsigned k=0;
     unsigned max_main_class_repres_set_size = 0;
     for (auto &dls : dls_arr) {
-        matrix_t main_class_repres = apply_all_cms(dls, cms_set);
+        matrix_t main_class_repres = find_main_class_repres_all_cms(dls, cms_set);
         main_class_repres_set.insert(main_class_repres);
         if (main_class_repres_set.size() > max_main_class_repres_set_size) {
             max_main_class_repres_set_size = main_class_repres_set.size();
@@ -485,6 +510,10 @@ set<matrix_t> find_main_class_repres(vector<matrix_t> dls_arr, set<matrix_t> cms
 int main(int argc, char *argv[]) {
     vector<string> argv_str;
     for (unsigned i=0; i<argc; i++) argv_str.push_back(argv[i]);
+    if ((argc == 2) and (argv_str[1] == "-v")) {
+        cout << prog << " of version " << version << endl;
+        return 1;
+    }
     if (argc < 2) {
         cout << "Usage : " << prog << " DLS-order [DLS-file] [CMS-file]" << endl;
         return 1;
@@ -573,7 +602,7 @@ int main(int argc, char *argv[]) {
     cout << "CMS set is correct" << endl;
 
     cout << "Generating DLS main class" << endl;
-    set<matrix_t> dls_main_class_repres_set = find_main_class_repres(dls_arr, esodls_cms_set);
+    set<matrix_t> dls_main_class_repres_set = find_main_class_repres_set(dls_arr, esodls_cms_set);
     cout << "DLS main classes : " << dls_main_class_repres_set.size() << endl;
     stringstream sstream_main_class;
     sstream_main_class << "esodls_main_class_repres_n" << n << ".txt";
@@ -592,13 +621,29 @@ int main(int argc, char *argv[]) {
     }
     main_class_file.close();
 
+    cur_point = std::chrono::steady_clock::now();
+    cout << "Elapsed " << std::chrono::duration_cast<std::chrono::seconds> (cur_point - start_point).count() << " sec" << std::endl;
+
+    // Find all distinct ESODLS with ascending first row:
+    set<matrix_t> dls_ascending_row_set;
+    for (auto &dls : dls_arr) {
+        vector<matrix_t> dls_ascending_row = find_all_dls_with_ascending_row_from_main_class(dls, esodls_cms_set);
+        for (auto &dls_asc_row : dls_ascending_row) {
+            dls_ascending_row_set.insert(dls_asc_row);
+        }
+    }
+    cout << dls_ascending_row_set.size() << " DLS with ascending first row" << endl;
+
+    cur_point = std::chrono::steady_clock::now();
+    cout << "Elapsed " << std::chrono::duration_cast<std::chrono::seconds> (cur_point - start_point).count() << " sec" << std::endl;
+
     vector<matrix_t> x_based_basic_partial_dls = generate_x_based_basic_partial_dls(n);
     cout << x_based_basic_partial_dls.size() << " basic X-based fillings" << endl;
     cur_point = std::chrono::steady_clock::now();
     cout << "Elapsed " << std::chrono::duration_cast<std::chrono::seconds> (cur_point - start_point).count() << " sec" << std::endl;
 
     cout << "Finding main class representatives for X-based partial fillings" << endl;
-    set<matrix_t> x_based_main_class_repres_set = find_main_class_repres(x_based_basic_partial_dls, esodls_cms_set);
+    set<matrix_t> x_based_main_class_repres_set = find_main_class_repres_set(x_based_basic_partial_dls, esodls_cms_set);
     cout << "X-based partial filling main classes : " << x_based_main_class_repres_set.size() << endl;
     cur_point = std::chrono::steady_clock::now();
     cout << "Elapsed " << std::chrono::duration_cast<std::chrono::seconds> (cur_point - start_point).count() << " sec" << std::endl;
