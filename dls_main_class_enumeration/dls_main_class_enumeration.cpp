@@ -28,7 +28,7 @@ using namespace std;
 #define matrix_t vector<row_t>
 
 string prog = "dls_main_class_enumeration";
-string version = "0.2.7";
+string version = "0.2.8";
 
 void print(matrix_t matrix) {
     for (auto &row : matrix) {
@@ -628,19 +628,27 @@ int main(int argc, char *argv[]) {
 
     // Find all distinct ESODLS with ascending first row:
     cout << "Generaring DLS with ascending first row" << endl;
-    set<string> dls_ascending_row_set;
+    set<vector<short int>> dls_ascending_row_set;
     k=0;
     for (auto &dls : dls_main_class_repres_set) {
         vector<matrix_t> dls_ascending_row = find_all_dls_with_ascending_row_from_main_class(dls, esodls_cms_set);
         for (auto &dls_asc_row : dls_ascending_row) {
-            string str;
+            vector<short int> dls_usi_vec;
+            short int usi = 0;
+            unsigned digits_num = 0;
             for (auto &row : dls_asc_row) {
                 for (auto &x : row) {
                     assert(x >= 0 and x < 11);
-                    str += to_string(x);
+                    if (digits_num == 4) {
+                        dls_usi_vec.push_back(usi);
+                        digits_num = 0;
+                        usi = 0;
+                    }
+                    usi += x*(short int)pow(10, digits_num);
+                    digits_num++;
                 }
             }
-            dls_ascending_row_set.insert(str);
+            dls_ascending_row_set.insert(dls_usi_vec);
         }
         k++;
         if (k % 1000 == 0) cout << k << " main classes out of " << dls_main_class_repres_set.size() << " processed" << endl;
