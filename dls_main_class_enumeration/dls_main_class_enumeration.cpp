@@ -28,7 +28,7 @@ using namespace std;
 #define matrix_t vector<row_t>
 
 string prog = "dls_main_class_enumeration";
-string version = "0.2.8";
+string version = "0.2.9";
 
 void print(matrix_t matrix) {
     for (auto &row : matrix) {
@@ -554,6 +554,8 @@ int main(int argc, char *argv[]) {
     print(trivial_cms);
 
     set<matrix_t> esodls_cms_set = reflect_rotate_symm(trivial_cms); 
+    trivial_cms.clear();
+    trivial_cms.shrink_to_fit();
     cout << "esodls_cms_set size : " << esodls_cms_set.size() << endl;
 
     cur_point = std::chrono::steady_clock::now();
@@ -602,9 +604,13 @@ int main(int argc, char *argv[]) {
         std::inserter(diff_set, diff_set.end()));
     assert(cms_from_file.size() == esodls_cms_set.size() and diff_set.empty());
     cout << "CMS set is correct" << endl;
+    cms_from_file.clear();
+    diff_set.clear();
 
     cout << "Generating DLS main class" << endl;
     set<matrix_t> dls_main_class_repres_set = find_main_class_repres_set(dls_arr, esodls_cms_set);
+    dls_arr.clear();
+    dls_arr.shrink_to_fit();
     cout << "DLS main classes : " << dls_main_class_repres_set.size() << endl;
     stringstream sstream_main_class;
     sstream_main_class << "esodls_main_class_repres_n" << n << ".txt";
@@ -666,6 +672,7 @@ int main(int argc, char *argv[]) {
 
     cout << "Finding main class representatives for X-based partial fillings" << endl;
     set<matrix_t> x_based_main_class_repres_set = find_main_class_repres_set(x_based_basic_partial_dls, esodls_cms_set);
+    esodls_cms_set.clear();
     cout << "X-based partial filling main classes : " << x_based_main_class_repres_set.size() << endl;
     cur_point = std::chrono::steady_clock::now();
     cout << "Elapsed " << std::chrono::duration_cast<std::chrono::seconds> (cur_point - start_point).count() << " sec" << std::endl;
