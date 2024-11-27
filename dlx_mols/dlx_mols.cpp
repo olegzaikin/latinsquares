@@ -25,7 +25,7 @@
 using namespace std;
 
 string program = "dlx_mols";
-string version = "0.1.4";
+string version = "0.1.5";
 
 int strtoi(string s) {
 	assert(not s.empty());
@@ -119,16 +119,21 @@ int main(int argc, char *argv[])
 
 	vector<latinsquare_t> squares = read_squares(filename, n);
 	cout << squares.size() << " Latin squares were read" << endl;
+	set<latinsquare_t> squares_set;
+	for (auto &square : squares) squares_set.insert(square);
+	cout << "Of them " << squares_set.size() << " Latin squares are unique" << endl;
 	unsigned diagls_num = 0;
-	for (auto &square : squares) if (DLX_orth::is_diag_latinsquare(square)) diagls_num++;
+	for (auto &square : squares_set) if (DLX_orth::is_diag_latinsquare(square)) diagls_num++;
 	cout << "Of them " << diagls_num << " diagonal Latin squares" << endl;
 
 	set<latinsquare_t> max_orth_char_squares;
 
 	unsigned max_orth_char = 0;
-	for (int i = 0; i < squares.size(); i++) {
-		if ((i % 10000 == 0) && (i > 0)) cout << i << " squares processed" << endl;
-		vector<latinsquare_t> orth_mates = DLX_orth::find_all_orth_mates(squares[i]);
+	unsigned k = 0;
+	for (auto &square : squares_set) {
+		if ((k % 10000 == 0) && (k > 0)) cout << k << " squares processed" << endl;
+		vector<latinsquare_t> orth_mates = DLX_orth::find_all_orth_mates(square);
+		k++;
 		// cout << orth_mates.size() << endl;
 		// For all pairs of DLS which are orthogonal to the current square and form a triple:
 		if (orth_mates.size() < 2) continue;
@@ -139,14 +144,14 @@ int main(int argc, char *argv[])
 				if (max_orth_char == 0 or orth_char > max_orth_char) {
 					max_orth_char = orth_char;
 					cout << "Updated max_orth_char : " << max_orth_char << endl;
-					print_square(squares[i]);
+					print_square(square);
 					max_orth_char_squares.clear();
 					cout << current_time(program_start) << endl;
 				}
 				assert(orth_char <= max_orth_char);
 				// If one more squares with the current max orth char is found:
 				if (orth_char != 0 and orth_char == max_orth_char) {
-					max_orth_char_squares.insert(squares[i]);
+					max_orth_char_squares.insert(square);
 					cout << max_orth_char_squares.size() << " squares with orth char " << max_orth_char << endl;
 					cout << current_time(program_start) << endl;
 				}
