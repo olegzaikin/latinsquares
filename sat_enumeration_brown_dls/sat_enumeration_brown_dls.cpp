@@ -33,7 +33,7 @@
 using namespace std;
 
 string program = "sat_enumeration_brown_dls";
-string version = "0.1.4";
+string version = "0.1.5";
 
 struct SatEncDls {
     vector<vector<cell_t>> X;
@@ -83,7 +83,7 @@ int main(int argc, char *argv[])
     }
 
     if (argc < 4) {
-        cout << "Usage: " << program << " DLS-order CMS-file -cpunum=<int>" << endl;
+        cerr << "Usage: " << program << " DLS-order CMS-file -cpunum=<int>" << endl;
         return 1;
     }
 
@@ -172,8 +172,19 @@ int main(int argc, char *argv[])
         cout << current_time(program_start) << endl;
     }
 
-    cout << main_class_repres_set.size() << " main class representatives" << endl;
     string main_class_fname = "brown_dls_n" + to_string(n) + "_main_class_repres";
+    string log_fname = "log_enum_brown_dls_n" + to_string(n);
+    cout << "Writing logs to file " << log_fname << endl;
+    stringstream sstream;
+    sstream << "*** Final statistics for n " << n << " :" << endl;
+    sstream << main_class_repres_set.size() << " main class representatives" << endl;
+    sstream << current_time(program_start) << endl;
+    sstream << "Writing main class representatives to file " << main_class_fname << endl;
+    cout << endl << sstream.str();
+    ofstream log_file(log_fname, ios_base::out);
+    log_file << sstream.str();
+    log_file.close();
+
     ofstream main_class_file(main_class_fname, ios_base::out);
     for (auto &dls : main_class_repres_set) {
         for (unsigned i=0; i<n; i++) {

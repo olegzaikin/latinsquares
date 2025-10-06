@@ -13,5 +13,6 @@ timelimit
 *.txt
 *.cnf
 out_*
+log_*
 brown_dls_*
 orth_*
