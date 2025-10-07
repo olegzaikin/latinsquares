@@ -13,6 +13,7 @@
 #include <fstream>
 #include <vector>
 #include <algorithm>
+#include <iterator>
 #include <set>
 #include <string>
 #include <sstream>
@@ -28,12 +29,13 @@
 #define cover_t vector<vector<int>>
 #define row_t vector<short int>
 #define matrix_t vector<row_t>
+#define lsset_t set<string>
 #define time_point_t std::chrono::time_point<std::chrono::system_clock>
 
 using namespace std;
 
 string program = "sat_enumeration_brown_dls";
-string version = "0.1.5";
+string version = "0.2.0";
 
 struct SatEncDls {
     vector<vector<cell_t>> X;
@@ -127,66 +129,125 @@ int main(int argc, char *argv[])
 
     cout << "After covers generation " << current_time(program_start) << endl;
 
-    // For each cover, generate a horizontal-symmetry and a vertical-symmetry CNF:
-    set<string> main_class_repres_set;
+    // Independent set of main classes for each cover to avoid the concurrency-thread issue:
+    vector<lsset_t> coverwise_horiz_main_class_repres_set;
+    coverwise_horiz_main_class_repres_set.resize(covers.size());
     unsigned processed = 0;
-    bool isRuntimeReported = false;
+    cout << "*** Start processing horizontally symmetric row-inverse DLS" << endl;
     #pragma omp parallel for schedule(dynamic, 1)
     for (unsigned cover_index=0; cover_index < covers.size(); cover_index++) {
+        cout << "Cover " << cover_index << ". Start. " << current_time(program_start) << endl;
+        // For each cover, generate a CNF that encodes horizontal-symmetry and this very row-inverted cover:
         string horiz_sym_cnf_fname = generate_cnf_brown_dls_horiz_sym(n, satencdls, covers[cover_index], cover_index);
         vector<string> ls_str_arr_horiz = find_all_dls_sat_solver(horiz_sym_cnf_fname, n, cover_index);
-        if (not isRuntimeReported and ls_str_arr_horiz.size() > 0) {
-            cout << "After parsing all horiz DLS from sat assignments " << current_time(program_start) << endl;
+        if (ls_str_arr_horiz.size() > 0) {
+            cout << "Cover " << cover_index << ". After finding and parsing all horiz DLS from sat assignments. " << current_time(program_start) << endl;
         }
         if (cms_set.size() > 0) {
             for (auto &ls : ls_str_arr_horiz) {
                 string min_repres = min_main_class_repres(ls, n, cms_set);
                 assert(min_repres.size() == n*n);
-                main_class_repres_set.insert(min_repres);
+                assert(cover_index < coverwise_horiz_main_class_repres_set.size());
+                coverwise_horiz_main_class_repres_set[cover_index].insert(min_repres);
             }
         }
-        if (not isRuntimeReported and ls_str_arr_horiz.size() > 0) {
-            cout << "After finding all horiz main class representatives " << current_time(program_start) << endl;
-            isRuntimeReported = true;
+        if (ls_str_arr_horiz.size() > 0) {
+            assert(coverwise_horiz_main_class_repres_set[cover_index].size() > 0);
+            cout << "Cover " << cover_index << ". After forming all horiz main class representatives. " << current_time(program_start) << endl;
+            string brown_dls_cover_fname = "brown_dls_n" + to_string(n) + "_cover" + to_string(cover_index) + "_horiz";
+            cout << "Writing squares to file " << brown_dls_cover_fname << endl;
+            ofstream ofile(brown_dls_cover_fname, ios_base::out);
+            for (auto &ls : ls_str_arr_horiz) ofile << ls << endl;
+            ofile.close();
         }
-        //
+
+        processed++;
+        
+        cout << "Cover " << cover_index << ". " << coverwise_horiz_main_class_repres_set[cover_index].size() <<
+            " main class representatives." << endl;
+        cout << "processed " << processed << " covers out of " << covers.size() << endl;
+        cout << current_time(program_start) << endl;
+    }
+    lsset_t final_horiz_main_class_repres_set;
+    for (auto &repres_set : coverwise_horiz_main_class_repres_set) {
+        for (auto &dls : repres_set) {
+            final_horiz_main_class_repres_set.insert(dls);
+        }
+    }
+    cout << "Total " << final_horiz_main_class_repres_set.size() << " horiz main classes" << endl;
+    cout << endl;
+
+    // Independent set of main classes for each cover to avoid the concurrency-thread issue:
+    vector<lsset_t> coverwise_vertic_main_class_repres_set;
+    coverwise_vertic_main_class_repres_set.resize(covers.size());
+    processed = 0;
+    cout << "*** Start processing vertically symmetric row-inverse DLS" << endl;
+    #pragma omp parallel for schedule(dynamic, 1)
+    for (unsigned cover_index=0; cover_index < covers.size(); cover_index++) {
+        cout << "Cover " << cover_index << ". Start. " << current_time(program_start) << endl;
+        // For each cover, generate a CNF that encodes vertical-symmetry and this very column-inverted cover:
         string vertic_sym_cnf_fname = generate_cnf_brown_dls_vertic_sym(n, satencdls, covers[cover_index], cover_index);
         vector<string> ls_str_arr_vertic = find_all_dls_sat_solver(vertic_sym_cnf_fname, n, cover_index);
+        if (ls_str_arr_vertic.size() > 0) {
+            cout << "Cover " << cover_index << ". After finding and parsing all vertic DLS from sat assignments. " << current_time(program_start) << endl;
+        }
         if (cms_set.size() > 0) {
             for (auto &ls : ls_str_arr_vertic) {
                 string min_repres = min_main_class_repres(ls, n, cms_set);
                 assert(min_repres.size() == n*n);
-                main_class_repres_set.insert(min_repres);
+                assert(cover_index < coverwise_vertic_main_class_repres_set.size());
+                coverwise_vertic_main_class_repres_set[cover_index].insert(min_repres);
             }
         }
-        if (ls_str_arr_horiz.size() > 0 or ls_str_arr_vertic.size() > 0) {
-            string brown_dls_cover_fname = "brown_dls_n" + to_string(n) + "_cover" + to_string(cover_index);
+        if (ls_str_arr_vertic.size() > 0) {
+            assert(coverwise_vertic_main_class_repres_set[cover_index].size() > 0);
+            cout << "Cover " << cover_index << ". After forming all vertic main class representatives. " << current_time(program_start) << endl;
+            string brown_dls_cover_fname = "brown_dls_n" + to_string(n) + "_cover" + to_string(cover_index) + "_vertic";
+            cout << "Writing squares to file " << brown_dls_cover_fname << endl;
             ofstream ofile(brown_dls_cover_fname, ios_base::out);
-            for (auto &ls : ls_str_arr_horiz) ofile << ls << endl;
             for (auto &ls : ls_str_arr_vertic) ofile << ls << endl;
             ofile.close();
         }
         processed++;
+        
+        cout << "Cover " << cover_index << ". " << coverwise_vertic_main_class_repres_set[cover_index].size() <<
+            " main class representatives." << endl;
         cout << "processed " << processed << " covers out of " << covers.size() << endl;
-        cout << main_class_repres_set.size() << " main class representatives" << endl;
         cout << current_time(program_start) << endl;
     }
+    lsset_t final_vertic_main_class_repres_set;
+    for (auto &repres_set : coverwise_vertic_main_class_repres_set) {
+        for (auto &dls : repres_set) {
+            final_vertic_main_class_repres_set.insert(dls);
+        }
+    }
+    cout << "Total " << final_vertic_main_class_repres_set.size() << " vertic main classes" << endl;
 
-    string main_class_fname = "brown_dls_n" + to_string(n) + "_main_class_repres";
+    // Collect horizontal and vertical main classes:
+    lsset_t final_main_class_repres_set;
+    for (auto &dls : final_horiz_main_class_repres_set) {
+        final_main_class_repres_set.insert(dls);
+    }
+    for (auto &dls : final_vertic_main_class_repres_set) {
+        final_main_class_repres_set.insert(dls);
+    }
+
+    // Main classes for horizontal and vertical cases are the same since
+    // from any a transpose (an isotopy operation) of any horizontal is vertical and vise versa: 
+    assert(final_horiz_main_class_repres_set == final_vertic_main_class_repres_set);
+
     string log_fname = "log_enum_brown_dls_n" + to_string(n);
     cout << "Writing logs to file " << log_fname << endl;
     stringstream sstream;
     sstream << "*** Final statistics for n " << n << " :" << endl;
-    sstream << main_class_repres_set.size() << " main class representatives" << endl;
+    sstream << final_main_class_repres_set.size() << " main classes" << endl;
     sstream << current_time(program_start) << endl;
+    string main_class_fname = "brown_dls_n" + to_string(n) + "_main_class_repres";
     sstream << "Writing main class representatives to file " << main_class_fname << endl;
-    cout << endl << sstream.str();
-    ofstream log_file(log_fname, ios_base::out);
-    log_file << sstream.str();
-    log_file.close();
-
     ofstream main_class_file(main_class_fname, ios_base::out);
-    for (auto &dls : main_class_repres_set) {
+    unsigned main_class_repres_set_size = 0;
+    for (auto &dls : final_main_class_repres_set) {
+        main_class_repres_set_size++;
         for (unsigned i=0; i<n; i++) {
             for (unsigned j=0; j<n; j++) {
                 main_class_file << dls[i*n + j];
@@ -197,6 +258,11 @@ int main(int argc, char *argv[])
         main_class_file << endl;
     }
     main_class_file.close();
+    sstream << main_class_repres_set_size << " main class representatives were written to the file" << endl;
+    cout << endl << sstream.str();
+    ofstream log_file(log_fname, ios_base::out);
+    log_file << sstream.str();
+    log_file.close();
 
     return 0;
 }
