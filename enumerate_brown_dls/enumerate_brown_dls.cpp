@@ -1,3 +1,20 @@
+// Created on: 29 Oct 2024
+// Author: Oleg Zaikin
+// E-mail: oleg.zaikin@icc.ru
+//
+// For the Latin square of order 5
+// 0 1 2 3 4
+// 1 2 3 4 0
+// 2 3 4 0 1
+// 3 4 0 1 2
+// 4 0 1 2 3
+//
+// from the paper 'On the Construction of Triples of Diagonal Latin Squares of Order 10'
+// form horizontally symmetric row-inverse diagonal Latin squares of order 10,
+// find their orthogonal mates, form all triples based on them, and calculate 
+// orthogonality characteristic. 
+//=============================================================================
+
 #include <iostream>
 #include <vector>
 #include <algorithm>
@@ -13,7 +30,7 @@ using namespace std;
 #define matrix_t vector<row_t>
 
 string program = "enumerate_brown_dls";
-string version = "0.0.1";
+string version = "0.0.2";
 
 bool is_latin_rows(const row_t row0, const row_t row1) {
     const unsigned n = row0.size();
@@ -239,8 +256,10 @@ int main(int argc, char *argv[])
                   {4, 0, 8, 7, 6}};
 
     //matrix_t ls = turn_square_brown_style(quarter_ls);
+    //cout << "Turn LS :" << endl;
+
     matrix_t ls = turn_square_dmd_style(quarter_ls);
-    cout << "Turn LS :" << endl;
+    cout << "Basic LS :" << endl;
     print(ls);
     unsigned dls_num = 0;
     unsigned k=0;
@@ -248,7 +267,7 @@ int main(int argc, char *argv[])
     vector<matrix_t> dls_arr;
     for (auto &perm : perumtations) {
         matrix_t perm_row_ls(n, row_t(n,-1));
-        matrix_t perm_col_ls(n, row_t(n,-1));
+        //matrix_t perm_col_ls(n, row_t(n,-1));
         for (unsigned i=0; i<n; i++) {
             perm_row_ls[i] = ls[perm[i]];
         }
@@ -257,6 +276,7 @@ int main(int argc, char *argv[])
             dls_num++;
             dls_arr.push_back(perm_row_ls);
         }
+        /*
         for (unsigned i=0; i<n; i++) {
             for (unsigned j=0; j<n; j++) {
                 perm_col_ls[i][j] = ls[i][perm[j]];
@@ -267,6 +287,7 @@ int main(int argc, char *argv[])
             dls_num++;
             dls_arr.push_back(perm_col_ls);
         }
+        */
         k++;
         if (k % 1000000 == 0) cout << k << " processed" << endl;
     }
@@ -276,6 +297,7 @@ int main(int argc, char *argv[])
 
     for (auto &dls : dls_arr) assert(DLX_orth::is_diag_latinsquare(dls));
 
+    /*
     set<matrix_t> normalized_dls_set;
     for (auto &dls : dls_arr) {
         //print(dls);
@@ -284,6 +306,7 @@ int main(int argc, char *argv[])
     }
     cout << normalized_dls_set.size() << " normalized DLS" << endl;
     dls_arr.clear();
+    */
 
 	unsigned max_orth_char = 0;
     unsigned max_orth_triples_num = 0;
@@ -292,10 +315,21 @@ int main(int argc, char *argv[])
     unsigned one_orth_mate_dls_num = 0;
     unsigned two_orth_mate_dls_num = 0;
     unsigned three_orth_mate_dls_num = 0;
-	for (auto &norm_dls : normalized_dls_set) {
-		vector<latinsquare_t> orth_mates = DLX_orth::find_all_orth_mates(norm_dls);
+    row_t row_ascending = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
+    vector<matrix_t> dls_asc_first_row_arr;
+    for (auto &dls : dls_arr) {
+        // Work only with DLS with the first row in ascending order:
+        if (dls[0] == row_ascending) dls_asc_first_row_arr.push_back(dls);
+    }
+    cout << dls_asc_first_row_arr.size() << " DLS with the first row in the ascending order" << endl;
+
+	//for (auto &norm_dls : normalized_dls_set) {
+    for (auto &dls : dls_asc_first_row_arr) {
+		//vector<latinsquare_t> orth_mates = DLX_orth::find_all_orth_mates(norm_dls);
+        vector<latinsquare_t> orth_mates = DLX_orth::find_all_orth_mates(dls);
         k++;
-        if (k % 1000 == 0) cout << k << " normalized DLS processed" << endl;
+        if (k % 1000 == 0) cout << k << " DLS processed" << endl;
+        //if (k % 1000 == 0) cout << k << " normalized DLS processed" << endl;
 		// For all pairs of DLS which are orthogonal to the current square and form a triple:
         if (orth_mates.size() == 0) no_orth_mate_dls_num++;
         if (orth_mates.size() == 1) one_orth_mate_dls_num++;
@@ -306,19 +340,23 @@ int main(int argc, char *argv[])
 			for (unsigned j2 = j+1; j2 < orth_mates.size(); j2++) {
 				unsigned orth_char = calc_orth_char(orth_mates[j], orth_mates[j2]);
 				//if (orth_char == max_orth_char) cout << orth_char << endl;
-                if (orth_char == 74) {
+                /*
+                if ( (orth_char == 74) and (dls[0] == row_ascending) ) {
                     max_orth_triples_num++;
                     cout << "max_orth_triples_num : " << max_orth_triples_num << endl;
                 }
+                */
 				if (max_orth_char == 0 or orth_char > max_orth_char) {
 					max_orth_char = orth_char;
 					cout << "Updated max_orth_char : " << max_orth_char << endl;
-					print(norm_dls);
+					//print(norm_dls);
+                    print(dls);
 				}
 			}
 		}
 	}
-    cout << k << " normalized DLS processed" << endl;
+    //cout << k << " normalized DLS processed" << endl;
+    cout << k << " DLS processed" << endl;
     cout << no_orth_mate_dls_num    << " DLS with 0 orthogonal mates" << endl;
     cout << one_orth_mate_dls_num   << " DLS with 1 orthogonal mates" << endl;
     cout << two_orth_mate_dls_num   << " DLS with 2 orthogonal mates" << endl;
