@@ -26,7 +26,7 @@
 using namespace std;
 
 string program = "dlx_mols";
-string version = "0.1.6";
+string version = "0.1.7";
 
 int strtoi(string s) {
 	assert(not s.empty());
@@ -161,6 +161,7 @@ int main(int argc, char *argv[])
 					cout << "Updated max_orth_char : " << max_orth_char << endl;
 					print_square(square);
 					max_orth_char_squares.clear();
+					cout << cur_transv_num << " transversals" << endl;
 					cout << current_time(program_start) << endl;
 				}
 				assert(orth_char <= max_orth_char);
@@ -168,6 +169,7 @@ int main(int argc, char *argv[])
 				if (orth_char != 0 and orth_char == max_orth_char) {
 					max_orth_char_squares.insert(square);
 					cout << max_orth_char_squares.size() << " squares with orth char " << max_orth_char << endl;
+					cout << cur_transv_num << " transversals" << endl;
 					cout << current_time(program_start) << endl;
 				}
 			}
