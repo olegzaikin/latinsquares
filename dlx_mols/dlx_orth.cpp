@@ -287,7 +287,7 @@ void DLX_orth::transversals_to_dlx(DLX_column &root, vector<vector<int>> &tvset,
 
 }
 
-void DLX_orth::find_all_transversals(int k, DLX_column &h, vector<DLX_column*> &ps, vector<vector<int>> &tvr) {
+void DLX_orth::find_all_transversals(int k, DLX_column &h, vector<DLX_column*> &ps, vector<transversal_t> &tvr) {
 	//pd = partial solution
 	if (h.Right == &h) {
 		vector<int> tmpv;
@@ -371,7 +371,7 @@ vector<latinsquare_t> DLX_orth::find_all_orth_mates(const latinsquare_t square) 
 	transversals_to_dlx(*root, trm, elements);
 	vector<DLX_column*> ps;
 	ps.clear();
-	vector<vector<int>> transversals;
+	vector<transversal_t> transversals;
 	find_all_transversals(0, *root, ps, transversals);
 	for (int i = 0; i < transversals.size(); i++) {
 		sort(transversals[i].begin(), transversals[i].end());
@@ -399,4 +399,50 @@ vector<latinsquare_t> DLX_orth::find_all_orth_mates(const latinsquare_t square) 
 	}
 
 	return orth_mates;
+}
+
+// Find all orthogonal mates for a given Latin square:
+LS_result DLX_orth::find_transversals_and_orth_mates(const latinsquare_t square) {
+	const unsigned n = square.size();
+	assert(is_latinsquare(square));
+	// Find all transversals:
+	vector<vector<int>> trm = find_tv_dlx(square);
+	DLX_column *root;
+	root = new (DLX_column);
+	vector<DLX_column*> elements;
+	transversals_to_dlx(*root, trm, elements);
+	vector<DLX_column*> ps;
+	ps.clear();
+	// Find disjoint sets of transversals:
+	vector<transversal_t> disjoint_transversals_sets;
+	find_all_transversals(0, *root, ps, disjoint_transversals_sets);
+	for (int i = 0; i < disjoint_transversals_sets.size(); i++) {
+		sort(disjoint_transversals_sets[i].begin(), disjoint_transversals_sets[i].end());
+	}
+
+	for (int i = 0; i < elements.size(); i++) {
+		delete elements[i];
+	}
+
+	vector<latinsquare_t> orth_mates;
+	if (disjoint_transversals_sets.size() > 0) {
+		//out << disjoint_transversals_sets.size() << " sets of disjoint transversals" << endl;
+
+		for (int i = 0; i < disjoint_transversals_sets.size(); i++) {
+			latinsquare_t orth_square(n, row_t(n));
+			for (unsigned u = 0; u < n; u++) {
+				for (unsigned v = 0; v < n; v++) {
+					orth_square[v][trm[disjoint_transversals_sets[i][u]][v]] = u;
+				}
+			}
+			assert(is_latinsquare(orth_square));
+			orth_mates.push_back(orth_square);
+		}
+
+	}
+	LS_result ls_res;
+	ls_res.orth_mates = orth_mates;
+	ls_res.transversals = trm;
+
+	return ls_res;
 }

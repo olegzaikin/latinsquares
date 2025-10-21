@@ -17,6 +17,7 @@
 #include <sstream>
 #include <chrono>
 #include <cassert>
+#include <map>
 
 #include "dlx_orth.h"
 
@@ -25,7 +26,7 @@
 using namespace std;
 
 string program = "dlx_mols";
-string version = "0.1.5";
+string version = "0.1.6";
 
 int strtoi(string s) {
 	assert(not s.empty());
@@ -127,19 +128,33 @@ int main(int argc, char *argv[])
 	cout << "Of them " << diagls_num << " diagonal Latin squares" << endl;
 
 	set<latinsquare_t> max_orth_char_squares;
+	// A key is the number of transversals, while a value is the number of squares:
+	map<unsigned, unsigned> transversals_num_sizes;
 
 	unsigned max_orth_char = 0;
+	unsigned max_transv_num = 0;
 	unsigned k = 0;
 	for (auto &square : squares_set) {
 		if ((k % 10000 == 0) && (k > 0)) cout << k << " squares processed" << endl;
-		vector<latinsquare_t> orth_mates = DLX_orth::find_all_orth_mates(square);
+		LS_result ls_res = DLX_orth::find_transversals_and_orth_mates(square);
+		unsigned cur_transv_num = ls_res.transversals.size();
+		assert(cur_transv_num > 0);
+		if (transversals_num_sizes.find(cur_transv_num) == transversals_num_sizes.end()) {
+			transversals_num_sizes.insert(pair<unsigned,unsigned>(cur_transv_num,0));
+			if (max_transv_num == 0 or cur_transv_num > max_transv_num) {
+				max_transv_num = cur_transv_num;
+				cout << "New maximum number of tranvsersals : " << cur_transv_num << endl;
+			}
+		}
+		// Increase the transversals-sizes counter:
+		transversals_num_sizes[cur_transv_num]++;
 		k++;
 		// cout << orth_mates.size() << endl;
 		// For all pairs of DLS which are orthogonal to the current square and form a triple:
-		if (orth_mates.size() < 2) continue;
-		for (unsigned j = 0; j < orth_mates.size() - 1; j++) {
-			for (unsigned j2 = j+1; j2 < orth_mates.size(); j2++) {
-				unsigned orth_char = calc_orth_char(orth_mates[j], orth_mates[j2]);
+		if (ls_res.orth_mates.size() < 2) continue;
+		for (unsigned j = 0; j < ls_res.orth_mates.size() - 1; j++) {
+			for (unsigned j2 = j+1; j2 < ls_res.orth_mates.size(); j2++) {
+				unsigned orth_char = calc_orth_char(ls_res.orth_mates[j], ls_res.orth_mates[j2]);
 				// If max orth char is updated:
 				if (max_orth_char == 0 or orth_char > max_orth_char) {
 					max_orth_char = orth_char;
@@ -178,7 +193,14 @@ int main(int argc, char *argv[])
 	}
 	ofile.close();
 
-	// max_orth_char_squares
+	string out_transversals_sizes_fname = "transversals_num_sizes_order=10";
+	cout << "Writing sizes of transverals to file " << out_transversals_sizes_fname << endl;
+	ofstream ofile2(out_transversals_sizes_fname, ios_base::out);
+	ofile2 << "transversals : squares" << endl;
+	for (auto pair : transversals_num_sizes) {
+		ofile2 << pair.first << " : " << pair.second << endl;
+	}
+	ofile2.close();
 
 	cout << "End" << endl;
 	cout << current_time(program_start) << endl;
