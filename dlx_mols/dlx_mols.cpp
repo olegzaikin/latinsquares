@@ -26,7 +26,7 @@
 using namespace std;
 
 string program = "dlx_mols";
-string version = "0.1.8";
+string version = "0.1.9";
 
 int strtoi(string s) {
 	assert(not s.empty());
@@ -64,25 +64,58 @@ void print_square(const latinsquare_t square) {
 // Read Latin squares from a given file:
 vector<latinsquare_t> read_squares(const string filename, const unsigned n){
 	vector<latinsquare_t> squares;
+	latinsquare_t cur_square;
 	ifstream in;
+	string s;
 	in.open(filename);
 	assert(in.is_open());
-	string s;
-	latinsquare_t cur_square;
-	while (getline(in, s)) {
-		if (s == "" and cur_square.size() > 0){
-			assert(DLX_orth::is_latinsquare(cur_square));
-			squares.push_back(cur_square);
-			cur_square.clear();
-		}
-		else if (s == "") continue;
-		else {
-			vector<int> tmp;
-			for (unsigned j = 0; j < n; j++) {
-				string t_s = s.substr(2 * j, 1);
-				tmp.push_back(strtoi(t_s));
+	// Read the first line to choose a reading mode:
+	string first_str;
+	getline(in, first_str);
+	in.close();
+	// Close the file and open again - now for reading squares:
+	in.open(filename);
+	// The first mode - one row a line, elements divided by spaces:
+	if (first_str.find(" ") != string::npos) {
+		while (getline(in, s)) {
+			if (s == "" and cur_square.size() == n){
+				assert(DLX_orth::is_latinsquare(cur_square));
+				squares.push_back(cur_square);
+				cur_square.clear();
 			}
-			cur_square.push_back(tmp);
+			else if (s == "") continue;
+			else {
+				row_t row;
+				for (unsigned j = 0; j < n; j++) {
+					string t_s = s.substr(2 * j, 1);
+					row.push_back(strtoi(t_s));
+				}
+				cur_square.push_back(row);
+			}
+		}
+		if (cur_square.size() == n) {
+			squares.push_back(cur_square);
+		}
+	}
+	// The second mode - one square a line without spaces:
+	else {
+		while (getline(in, s)) {
+			if (s == "") continue;
+			assert(s.size() == n*n);
+			for (unsigned i=0; i<n; i++) {
+				row_t row;
+				for (unsigned j=0; j<n; j++) {
+					assert(i*n + j < s.size());
+					// One char to string:
+					string t_s(1, s[i*n + j]);
+					// String to int:
+					row.push_back(strtoi(t_s));
+				}
+				assert(row.size() == n);
+				cur_square.push_back(row);
+			}
+			assert(cur_square.size() == n);
+			squares.push_back(cur_square);
 		}
 	}
 	in.close();
