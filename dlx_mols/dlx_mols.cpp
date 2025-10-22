@@ -26,7 +26,7 @@
 using namespace std;
 
 string program = "dlx_mols";
-string version = "0.1.9";
+string version = "0.1.10";
 
 int strtoi(string s) {
 	assert(not s.empty());
@@ -95,6 +95,7 @@ vector<latinsquare_t> read_squares(const string filename, const unsigned n){
 		}
 		if (cur_square.size() == n) {
 			squares.push_back(cur_square);
+			cur_square.clear();
 		}
 	}
 	// The second mode - one square a line without spaces:
@@ -116,6 +117,7 @@ vector<latinsquare_t> read_squares(const string filename, const unsigned n){
 			}
 			assert(cur_square.size() == n);
 			squares.push_back(cur_square);
+			cur_square.clear();
 		}
 	}
 	in.close();
