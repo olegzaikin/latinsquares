@@ -24,17 +24,18 @@ struct DLX_column {
 
 struct LS_result {
 	vector<latinsquare_t> orth_mates;
-	vector<transversal_t> transversals;
+	unsigned transversals_num;
+	unsigned diag_transversals_num;
 };
 
 namespace DLX_orth {
 	void cover(DLX_column *&c);
 	void uncover(DLX_column *&c);
 	void choose_c(DLX_column &h, DLX_column *&c);
-	void square_to_DLX(DLX_column &root, const latinsquare_t square, vector<DLX_column*> &elements);
+	void square_to_DLX(DLX_column &root, const latinsquare_t square, vector<DLX_column*> &elements, const bool is_diag);
 	void transversals_to_dlx(DLX_column &root, vector<vector<int>> &tvset, vector<DLX_column*> &elements);
 	void find_all_transversals(int k, DLX_column &h, vector<DLX_column*> &ps, vector<transversal_t> &tvr);
-	vector<vector<int>> find_tv_dlx(const latinsquare_t square);
+	vector<vector<int>> find_tv_dlx(const latinsquare_t square, const bool is_diag);
 	bool is_diag_latinsquare(const latinsquare_t square);
 	bool is_latinsquare(const latinsquare_t square);
 	vector<latinsquare_t> find_all_orth_mates(const latinsquare_t square);

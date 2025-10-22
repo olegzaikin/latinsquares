@@ -99,7 +99,7 @@ void DLX_orth::choose_c(DLX_column &h, DLX_column *&c) {
 	}
 }
 
-void DLX_orth::square_to_DLX(DLX_column &root, const latinsquare_t square, vector<DLX_column*> &elements) {
+void DLX_orth::square_to_DLX(DLX_column &root, const latinsquare_t square, vector<DLX_column*> &elements, const bool is_diag) {
 	const unsigned n = square.size();
 	assert(n > 0);
 	root.Up = NULL;
@@ -116,7 +116,10 @@ void DLX_orth::square_to_DLX(DLX_column &root, const latinsquare_t square, vecto
 	//2n to 3n - value
 	//3n+1 - diag
 	//3n+2 - antidiag
-	for (int i = 0; i < 3*n+2; i++) {
+	int dlx_columns_num;
+	if (is_diag) dlx_columns_num = 3*n+2;
+	else dlx_columns_num = 3*n;
+	for (int i = 0; i < dlx_columns_num; i++) {
 		DLX_column *ct;
 		ct = new (DLX_column);
 		//	ct->column_number = i;
@@ -182,35 +185,36 @@ void DLX_orth::square_to_DLX(DLX_column &root, const latinsquare_t square, vecto
 			elements.push_back(ctve);
 			tvrow.push_back(ctve);
 
-			if (i == j) {
-				ctve = new (DLX_column);
-				ctve->Column = columns[3 * n ];
-				ctve->Column->size++;
-				ctve->Down = columns[3 * n ];
-				ctve->Up = columns[3 * n]->Up;
-				ctve->Up->Down = ctve;
-				ctve->Down->Up = ctve;
-				ctve->row_id = i*n + j;
-				//	ctve->column_number = k;
-				ctve->size = -10;
-				elements.push_back(ctve);
-				tvrow.push_back(ctve);
-			}
-
-			if (i == (n - j - 1)) {
-				ctve = new (DLX_column);
-				ctve->Column = columns[3 * n+1];
-				ctve->Column->size++;
-				ctve->Down = columns[3 * n+1];
-				ctve->Up = columns[3 * n+1]->Up;
-				ctve->Up->Down = ctve;
-				ctve->Down->Up = ctve;
-				ctve->row_id = i*n + j;
-				//	ctve->column_number = k;
-				ctve->size = -10;
-				elements.push_back(ctve);
-				tvrow.push_back(ctve);
-			}			
+			if (is_diag) {
+				if (i == j) {
+					ctve = new (DLX_column);
+					ctve->Column = columns[3 * n ];
+					ctve->Column->size++;
+					ctve->Down = columns[3 * n ];
+					ctve->Up = columns[3 * n]->Up;
+					ctve->Up->Down = ctve;
+					ctve->Down->Up = ctve;
+					ctve->row_id = i*n + j;
+					//	ctve->column_number = k;
+					ctve->size = -10;
+					elements.push_back(ctve);
+					tvrow.push_back(ctve);
+				}
+				if (i == (n - j - 1)) {
+					ctve = new (DLX_column);
+					ctve->Column = columns[3 * n+1];
+					ctve->Column->size++;
+					ctve->Down = columns[3 * n+1];
+					ctve->Up = columns[3 * n+1]->Up;
+					ctve->Up->Down = ctve;
+					ctve->Down->Up = ctve;
+					ctve->row_id = i*n + j;
+					//	ctve->column_number = k;
+					ctve->size = -10;
+					elements.push_back(ctve);
+					tvrow.push_back(ctve);
+				}	
+			}	
 
 			for (int j = 0; j < tvrow.size() - 1; j++) {
 				tvrow[j]->Right = tvrow[j + 1];
@@ -331,14 +335,14 @@ void DLX_orth::find_all_transversals(int k, DLX_column &h, vector<DLX_column*> &
 	}
 }
 
-vector<vector<int>> DLX_orth::find_tv_dlx(const latinsquare_t square) {
+vector<vector<int>> DLX_orth::find_tv_dlx(const latinsquare_t square, const bool is_diag) {
 	assert(is_latinsquare(square));
 	const int n = square.size();
 	
 	DLX_column *root;
 	root = new (DLX_column);
 	vector<DLX_column*> elements;
-	square_to_DLX(*root, square, elements);
+	square_to_DLX(*root, square, elements, is_diag);
 	vector<DLX_column*> ps;
 	ps.clear();
 	vector<vector<int>> tvr;
@@ -364,7 +368,8 @@ vector<vector<int>> DLX_orth::find_tv_dlx(const latinsquare_t square) {
 vector<latinsquare_t> DLX_orth::find_all_orth_mates(const latinsquare_t square) {
 	const unsigned n = square.size();
 	assert(is_latinsquare(square));
-	vector<vector<int>> trm = find_tv_dlx(square);
+	bool is_diag = true;
+	vector<vector<int>> trm = find_tv_dlx(square, is_diag);
 	DLX_column *root;
 	root = new (DLX_column);
 	vector<DLX_column*> elements;
@@ -405,12 +410,14 @@ vector<latinsquare_t> DLX_orth::find_all_orth_mates(const latinsquare_t square) 
 LS_result DLX_orth::find_transversals_and_orth_mates(const latinsquare_t square) {
 	const unsigned n = square.size();
 	assert(is_latinsquare(square));
+	// Find all diagonal transversals:
+	vector<vector<int>> diag_transversals = find_tv_dlx(square, true);
 	// Find all transversals:
-	vector<vector<int>> trm = find_tv_dlx(square);
+	vector<vector<int>> transversals = find_tv_dlx(square, false);
 	DLX_column *root;
 	root = new (DLX_column);
 	vector<DLX_column*> elements;
-	transversals_to_dlx(*root, trm, elements);
+	transversals_to_dlx(*root, diag_transversals, elements);
 	vector<DLX_column*> ps;
 	ps.clear();
 	// Find disjoint sets of transversals:
@@ -432,7 +439,7 @@ LS_result DLX_orth::find_transversals_and_orth_mates(const latinsquare_t square)
 			latinsquare_t orth_square(n, row_t(n));
 			for (unsigned u = 0; u < n; u++) {
 				for (unsigned v = 0; v < n; v++) {
-					orth_square[v][trm[disjoint_transversals_sets[i][u]][v]] = u;
+					orth_square[v][diag_transversals[disjoint_transversals_sets[i][u]][v]] = u;
 				}
 			}
 			assert(is_latinsquare(orth_square));
@@ -442,7 +449,8 @@ LS_result DLX_orth::find_transversals_and_orth_mates(const latinsquare_t square)
 	}
 	LS_result ls_res;
 	ls_res.orth_mates = orth_mates;
-	ls_res.transversals = trm;
+	ls_res.diag_transversals_num = diag_transversals.size();
+	ls_res.transversals_num = transversals.size();
 
 	return ls_res;
 }

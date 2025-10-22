@@ -26,7 +26,7 @@
 using namespace std;
 
 string program = "dlx_mols";
-string version = "0.1.7";
+string version = "0.1.8";
 
 int strtoi(string s) {
 	assert(not s.empty());
@@ -52,7 +52,6 @@ string current_time(const time_point_t &program_start) {
 // Print a given Latin square:
 void print_square(const latinsquare_t square) {
 	assert(not square.empty());
-	cout << endl;
 	for (unsigned i = 0; i < square.size(); i++) {
 		assert(not square[i].empty());
 		for (unsigned j = 0; j < square[i].size(); j++) {
@@ -128,16 +127,27 @@ int main(int argc, char *argv[])
 	cout << "Of them " << diagls_num << " diagonal Latin squares" << endl;
 
 	set<latinsquare_t> max_orth_char_squares;
-	// A key is the number of transversals, while a value is the number of squares:
+	// A key is the number of diagonal transversals, while a value is the number of squares:
+	map<unsigned, unsigned> diag_transversals_num_sizes;
 	map<unsigned, unsigned> transversals_num_sizes;
 
 	unsigned max_orth_char = 0;
+	unsigned max_diag_transv_num = 0;
 	unsigned max_transv_num = 0;
 	unsigned k = 0;
 	for (auto &square : squares_set) {
 		if ((k % 10000 == 0) && (k > 0)) cout << k << " squares processed" << endl;
 		LS_result ls_res = DLX_orth::find_transversals_and_orth_mates(square);
-		unsigned cur_transv_num = ls_res.transversals.size();
+		unsigned cur_diag_transv_num = ls_res.diag_transversals_num;
+		assert(cur_diag_transv_num > 0);
+		if (diag_transversals_num_sizes.find(cur_diag_transv_num) == diag_transversals_num_sizes.end()) {
+			diag_transversals_num_sizes.insert(pair<unsigned,unsigned>(cur_diag_transv_num,0));
+			if (max_diag_transv_num == 0 or cur_diag_transv_num > max_diag_transv_num) {
+				max_diag_transv_num = cur_diag_transv_num;
+				cout << "New maximum number of diagonal tranvsersals : " << cur_diag_transv_num << endl;
+			}
+		}
+		unsigned cur_transv_num = ls_res.transversals_num;
 		assert(cur_transv_num > 0);
 		if (transversals_num_sizes.find(cur_transv_num) == transversals_num_sizes.end()) {
 			transversals_num_sizes.insert(pair<unsigned,unsigned>(cur_transv_num,0));
@@ -147,11 +157,15 @@ int main(int argc, char *argv[])
 			}
 		}
 		// Increase the transversals-sizes counter:
+		diag_transversals_num_sizes[cur_diag_transv_num]++;
 		transversals_num_sizes[cur_transv_num]++;
 		k++;
 		// cout << orth_mates.size() << endl;
 		// For all pairs of DLS which are orthogonal to the current square and form a triple:
 		if (ls_res.orth_mates.size() < 2) continue;
+		for (unsigned j = 0; j < ls_res.orth_mates.size(); j++) {
+			assert(DLX_orth::is_diag_latinsquare(ls_res.orth_mates[j]));
+		}
 		for (unsigned j = 0; j < ls_res.orth_mates.size() - 1; j++) {
 			for (unsigned j2 = j+1; j2 < ls_res.orth_mates.size(); j2++) {
 				unsigned orth_char = calc_orth_char(ls_res.orth_mates[j], ls_res.orth_mates[j2]);
@@ -159,18 +173,21 @@ int main(int argc, char *argv[])
 				if (max_orth_char == 0 or orth_char > max_orth_char) {
 					max_orth_char = orth_char;
 					cout << "Updated max_orth_char : " << max_orth_char << endl;
-					print_square(square);
+					cout << ls_res.orth_mates.size() << " orthogonal mates" << endl;
+					// New record, so clear all squares from the previous record:
 					max_orth_char_squares.clear();
-					cout << cur_transv_num << " transversals" << endl;
-					cout << current_time(program_start) << endl;
 				}
 				assert(orth_char <= max_orth_char);
 				// If one more squares with the current max orth char is found:
 				if (orth_char != 0 and orth_char == max_orth_char) {
+					cout << "***" << endl;
+					print_square(square);
 					max_orth_char_squares.insert(square);
 					cout << max_orth_char_squares.size() << " squares with orth char " << max_orth_char << endl;
+					cout << cur_diag_transv_num << " diagonal transversals" << endl;
 					cout << cur_transv_num << " transversals" << endl;
 					cout << current_time(program_start) << endl;
+					cout << endl;
 				}
 			}
 		}
@@ -195,14 +212,23 @@ int main(int argc, char *argv[])
 	}
 	ofile.close();
 
-	string out_transversals_sizes_fname = "transversals_num_sizes_order=10";
-	cout << "Writing sizes of transverals to file " << out_transversals_sizes_fname << endl;
-	ofstream ofile2(out_transversals_sizes_fname, ios_base::out);
-	ofile2 << "transversals : squares" << endl;
-	for (auto pair : transversals_num_sizes) {
+	string out_diag_transversals_sizes_fname = "transversals-diag_num_sizes_order=10";
+	cout << "Writing sizes of diagonal transverals to file " << out_diag_transversals_sizes_fname << endl;
+	ofstream ofile2(out_diag_transversals_sizes_fname, ios_base::out);
+	ofile2 << "transversals-diag : squares" << endl;
+	for (auto pair : diag_transversals_num_sizes) {
 		ofile2 << pair.first << " : " << pair.second << endl;
 	}
 	ofile2.close();
+
+	string out_transversals_sizes_fname = "transversals_num_sizes_order=10";
+	cout << "Writing sizes of transverals to file " << out_transversals_sizes_fname << endl;
+	ofstream ofile3(out_transversals_sizes_fname, ios_base::out);
+	ofile3 << "transversals : squares" << endl;
+	for (auto pair : transversals_num_sizes) {
+		ofile3 << pair.first << " : " << pair.second << endl;
+	}
+	ofile3.close();
 
 	cout << "End" << endl;
 	cout << current_time(program_start) << endl;
