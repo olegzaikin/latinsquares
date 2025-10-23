@@ -26,7 +26,7 @@
 using namespace std;
 
 string program = "dlx_mols";
-string version = "0.1.10";
+string version = "0.1.11";
 
 int strtoi(string s) {
 	assert(not s.empty());
@@ -154,12 +154,17 @@ int main(int argc, char *argv[])
 
 	vector<latinsquare_t> squares = read_squares(filename, n);
 	cout << squares.size() << " Latin squares were read" << endl;
+	cout << current_time(program_start) << endl;
 	set<latinsquare_t> squares_set;
 	for (auto &square : squares) squares_set.insert(square);
 	cout << "Of them " << squares_set.size() << " Latin squares are unique" << endl;
+	squares.clear();
+	cout << current_time(program_start) << endl;
 	unsigned diagls_num = 0;
 	for (auto &square : squares_set) if (DLX_orth::is_diag_latinsquare(square)) diagls_num++;
 	cout << "Of them " << diagls_num << " diagonal Latin squares" << endl;
+	cout << current_time(program_start) << endl;
+	cout << "Start processing squares" << endl;
 
 	set<latinsquare_t> max_orth_char_squares;
 	// A key is the number of diagonal transversals, while a value is the number of squares:

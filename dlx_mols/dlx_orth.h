@@ -4,7 +4,7 @@
 #include <vector>
 #include <cassert>
 
-#define row_t vector<int>
+#define row_t vector<unsigned short int>
 #define latinsquare_t vector<row_t>
 #define transversal_t vector<int>
 
