@@ -26,7 +26,7 @@
 using namespace std;
 
 string program = "dlx_mols";
-string version = "0.1.11";
+string version = "0.1.12";
 
 int strtoi(string s) {
 	assert(not s.empty());
@@ -62,8 +62,8 @@ void print_square(const latinsquare_t square) {
 }
 
 // Read Latin squares from a given file:
-vector<latinsquare_t> read_squares(const string filename, const unsigned n){
-	vector<latinsquare_t> squares;
+set<latinsquare_t> read_squares(const string filename, const unsigned n){
+	set<latinsquare_t> squares_set;
 	latinsquare_t cur_square;
 	ifstream in;
 	string s;
@@ -75,13 +75,15 @@ vector<latinsquare_t> read_squares(const string filename, const unsigned n){
 	in.close();
 	// Close the file and open again - now for reading squares:
 	in.open(filename);
+	unsigned processed_lines_num = 0;
 	// The first mode - one row a line, elements divided by spaces:
 	if (first_str.find(" ") != string::npos) {
 		while (getline(in, s)) {
 			if (s == "" and cur_square.size() == n){
 				assert(DLX_orth::is_latinsquare(cur_square));
-				squares.push_back(cur_square);
+				squares_set.insert(cur_square);
 				cur_square.clear();
+				processed_lines_num++;
 			}
 			else if (s == "") continue;
 			else {
@@ -94,8 +96,9 @@ vector<latinsquare_t> read_squares(const string filename, const unsigned n){
 			}
 		}
 		if (cur_square.size() == n) {
-			squares.push_back(cur_square);
+			squares_set.insert(cur_square);
 			cur_square.clear();
+			processed_lines_num++;
 		}
 	}
 	// The second mode - one square a line without spaces:
@@ -116,12 +119,13 @@ vector<latinsquare_t> read_squares(const string filename, const unsigned n){
 				cur_square.push_back(row);
 			}
 			assert(cur_square.size() == n);
-			squares.push_back(cur_square);
+			squares_set.insert(cur_square);
 			cur_square.clear();
 		}
 	}
 	in.close();
-	return squares;
+	cout << processed_lines_num << " squares were read" << endl; 
+	return squares_set;
 }
 
 // Calculate the orhtogonality characteristics of a pair of Latin squares:
@@ -152,13 +156,8 @@ int main(int argc, char *argv[])
 
 	const time_point_t program_start = std::chrono::system_clock::now();
 
-	vector<latinsquare_t> squares = read_squares(filename, n);
-	cout << squares.size() << " Latin squares were read" << endl;
-	cout << current_time(program_start) << endl;
-	set<latinsquare_t> squares_set;
-	for (auto &square : squares) squares_set.insert(square);
-	cout << "Of them " << squares_set.size() << " Latin squares are unique" << endl;
-	squares.clear();
+	set<latinsquare_t> squares_set = read_squares(filename, n);
+	cout << squares_set.size() << " Latin unique squares were read" << endl;
 	cout << current_time(program_start) << endl;
 	unsigned diagls_num = 0;
 	for (auto &square : squares_set) if (DLX_orth::is_diag_latinsquare(square)) diagls_num++;
