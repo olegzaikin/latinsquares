@@ -26,7 +26,7 @@
 using namespace std;
 
 string program = "dlx_mols";
-string version = "0.1.13";
+string version = "0.1.14";
 
 int strtoi(string s) {
 	assert(not s.empty());
@@ -121,6 +121,7 @@ set<latinsquare_t> read_squares(const string filename, const unsigned n){
 			assert(cur_square.size() == n);
 			squares_set.insert(cur_square);
 			cur_square.clear();
+			processed_lines_num++;
 		}
 	}
 	in.close();
