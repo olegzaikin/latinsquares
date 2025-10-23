@@ -26,7 +26,7 @@
 using namespace std;
 
 string program = "dlx_mols";
-string version = "0.1.12";
+string version = "0.1.13";
 
 int strtoi(string s) {
 	assert(not s.empty());
@@ -75,7 +75,7 @@ set<latinsquare_t> read_squares(const string filename, const unsigned n){
 	in.close();
 	// Close the file and open again - now for reading squares:
 	in.open(filename);
-	unsigned processed_lines_num = 0;
+	unsigned long long processed_lines_num = 0;
 	// The first mode - one row a line, elements divided by spaces:
 	if (first_str.find(" ") != string::npos) {
 		while (getline(in, s)) {
