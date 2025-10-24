@@ -449,8 +449,8 @@ LS_result DLX_orth::find_transversals_and_orth_mates(const latinsquare_t square)
 	}
 	LS_result ls_res;
 	ls_res.orth_mates = orth_mates;
-	ls_res.diag_transversals_num = diag_transversals.size();
-	ls_res.transversals_num = transversals.size();
+	ls_res.diag_transv = diag_transversals.size();
+	ls_res.transv = transversals.size();
 
 	return ls_res;
 }

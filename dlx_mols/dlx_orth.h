@@ -24,8 +24,8 @@ struct DLX_column {
 
 struct LS_result {
 	vector<latinsquare_t> orth_mates;
-	unsigned transversals_num;
-	unsigned diag_transversals_num;
+	unsigned transv;
+	unsigned diag_transv;
 };
 
 namespace DLX_orth {

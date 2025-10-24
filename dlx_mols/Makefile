@@ -1,5 +1,5 @@
 CPP = g++
-CPPFLAGS = -O3 -std=c++20
+CPPFLAGS = -O3 -std=c++20 -fopenmp
 
 dlx_mols: dlx_mols.o dlx_orth.o
 	${CPP} ${CPPFLAGS} dlx_mols.o dlx_orth.o -o dlx_mols
