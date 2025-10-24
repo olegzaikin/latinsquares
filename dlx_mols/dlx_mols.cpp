@@ -29,7 +29,7 @@
 using namespace std;
 
 string program = "dlx_mols";
-string version = "0.2.0";
+string version = "0.2.1";
 
 struct Record_orth_char_result {
 	latinsquare_t square;
@@ -244,6 +244,7 @@ int main(int argc, char *argv[])
 	unsigned k = 0;
 	unsigned report_per_task = 10000;
 	if (cpu_num >= 10) report_per_task = 100000;
+	if (cpu_num >= 100) report_per_task = 1000000;
 	// There are plenty of simple tasks, so static distribution sounds here:
 	//#pragma omp parallel for schedule(static, 1000)
 	#pragma omp parallel for schedule(static, 1000)
