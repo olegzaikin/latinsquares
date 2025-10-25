@@ -29,7 +29,7 @@
 using namespace std;
 
 string program = "dlx_mols";
-string version = "0.2.1";
+string version = "0.2.2";
 
 struct Record_orth_char_result {
 	latinsquare_t square;
@@ -348,7 +348,7 @@ int main(int argc, char *argv[])
 	cout << record_squares.size() << " squares with maximum orthogonal char " << max_orth_char << endl;
 	// Write the record squares to a file:
 	stringstream sstream;
-	sstream << "orth_char=" << max_orth_char << "_squares_order=10";
+	sstream << "orth_char=" << max_orth_char << "_squares_order=" << n << "_" << filename;
 	string max_orth_char_squares_fname = sstream.str();
 	cout << "Writing " << record_squares.size() << 
 		" squares to file " << max_orth_char_squares_fname << endl;
