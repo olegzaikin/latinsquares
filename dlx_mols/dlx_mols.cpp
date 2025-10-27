@@ -19,6 +19,7 @@
 #include <cassert>
 #include <map>
 #include <thread>
+#include <algorithm>
 
 #include "dlx_orth.h"
 
@@ -29,7 +30,7 @@
 using namespace std;
 
 string program = "dlx_mols";
-string version = "0.2.2";
+string version = "0.2.3";
 
 struct Record_orth_char_result {
 	latinsquare_t square;
@@ -347,8 +348,11 @@ int main(int argc, char *argv[])
 	assert(record_squares.size() == num_squares_74orth);
 	cout << record_squares.size() << " squares with maximum orthogonal char " << max_orth_char << endl;
 	// Write the record squares to a file:
+	string base_filename = filename;
+	base_filename.erase(remove(base_filename.begin(), base_filename.end(), '.'), base_filename.end());
+	base_filename.erase(remove(base_filename.begin(), base_filename.end(), '/'), base_filename.end());
 	stringstream sstream;
-	sstream << "orth_char=" << max_orth_char << "_squares_order=" << n << "_" << filename;
+	sstream << "orth_char=" << max_orth_char << "_squares_order=" << n << "_" << base_filename;
 	string max_orth_char_squares_fname = sstream.str();
 	cout << "Writing " << record_squares.size() << 
 		" squares to file " << max_orth_char_squares_fname << endl;
