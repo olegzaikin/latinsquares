@@ -30,7 +30,7 @@
 using namespace std;
 
 string program = "dlx_mols";
-string version = "0.2.3";
+string version = "0.2.4";
 
 struct Record_orth_char_result {
 	latinsquare_t square;
@@ -228,7 +228,6 @@ int main(int argc, char *argv[])
 
 	set<latinsquare_t> max_orth_char_squares;
 
-	unsigned num_squares_74orth = 0;
 	unsigned max_orth_char = 0;
 	unsigned max_diag_transv = 0;
 	unsigned max_transv = 0;
@@ -305,10 +304,6 @@ int main(int argc, char *argv[])
 		for (unsigned j = 0; j < ls_res.orth_mates.size() - 1; j++) {
 			for (unsigned j2 = j+1; j2 < ls_res.orth_mates.size(); j2++) {
 				unsigned orth_char = calc_orth_char(ls_res.orth_mates[j], ls_res.orth_mates[j2]);
-				if (orth_char == 74) {
-					#pragma omp critical
-					num_squares_74orth++;
-				}
 				// Check if the thread-wise record is updated:
 				if (threads_results[thread_id].max_orth_char == 0 or orth_char > threads_results[thread_id].max_orth_char) {
 					threads_results[thread_id].max_orth_char = orth_char;
@@ -345,7 +340,6 @@ int main(int argc, char *argv[])
 			}
 		}
 	}
-	assert(record_squares.size() == num_squares_74orth);
 	cout << record_squares.size() << " squares with maximum orthogonal char " << max_orth_char << endl;
 	// Write the record squares to a file:
 	string base_filename = filename;

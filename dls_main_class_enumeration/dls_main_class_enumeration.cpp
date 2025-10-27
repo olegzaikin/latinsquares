@@ -28,7 +28,7 @@ using namespace std;
 #define matrix_t vector<row_t>
 
 string prog = "dls_main_class_enumeration";
-string version = "0.2.9";
+string version = "0.2.10";
 
 void print(matrix_t matrix) {
     for (auto &row : matrix) {
@@ -119,13 +119,13 @@ vector<matrix_t> read_dls_string(const string fname, const short int n) {
     ifstream f(fname);
     string str;
     while (getline(f, str)) {
-        str.erase(std::remove(str.begin(), str.end(), '\n'), str.end());
-        str.erase(std::remove(str.begin(), str.end(), '\r'), str.end());
+        str.erase(remove(str.begin(), str.end(), '\n'), str.end());
+        str.erase(remove(str.begin(), str.end(), '\r'), str.end());
         if (str.size() != n*n) continue;
         matrix_t dls;
         row_t row;
         for (short int i=0; i<str.size(); i++) {
-            row.push_back(std::stoi(str.substr(i,1))); // row.push_back(std::stoi(str[i]));
+            row.push_back(stoi(str.substr(i,1))); // row.push_back(stoi(str[i]));
             if (row.size() == n) {
                 dls.push_back(row);
                 row.clear();
@@ -365,7 +365,7 @@ set<matrix_t> fourrows_fourcols_symm(const matrix_t dls) {
         assert(is_diag_cms(symm_dls));
         fourrows_fourcols_symm_dls_set.insert(symm_dls);
         perm_num++;
-    } while (std::next_permutation(cur_indices.begin(), cur_indices.end()));
+    } while (next_permutation(cur_indices.begin(), cur_indices.end()));
     assert(fourrows_fourcols_symm_dls_set.size() == perm_num);
     return fourrows_fourcols_symm_dls_set;
 }
@@ -426,7 +426,7 @@ vector<matrix_t> generate_x_based_basic_partial_dls(const short int n) {
             }
             x_based_basic_partial_dls.push_back(x_based_partial_dls);
         }
-    } while (std::next_permutation(main_antidiag.begin(), main_antidiag.end()));
+    } while (next_permutation(main_antidiag.begin(), main_antidiag.end()));
     return x_based_basic_partial_dls;
 }
 
@@ -538,10 +538,10 @@ int main(int argc, char *argv[]) {
         cout << "CMS file name : " << cms_fname << endl;
     }
 
-    chrono::steady_clock::time_point start_point = std::chrono::steady_clock::now();
+    chrono::steady_clock::time_point start_point = chrono::steady_clock::now();
 
-    std::chrono::steady_clock::time_point cur_point = std::chrono::steady_clock::now();
-    cout << "Elapsed " << std::chrono::duration_cast<std::chrono::seconds> (cur_point - start_point).count() << " sec" << std::endl;
+    chrono::steady_clock::time_point cur_point = chrono::steady_clock::now();
+    cout << "Elapsed " << chrono::duration_cast<chrono::seconds> (cur_point - start_point).count() << " sec" << endl;
 
     matrix_t trivial_cms(n,row_t(n, 0));
     for (short int i=0; i<n; i++) {
@@ -558,8 +558,8 @@ int main(int argc, char *argv[]) {
     trivial_cms.shrink_to_fit();
     cout << "esodls_cms_set size : " << esodls_cms_set.size() << endl;
 
-    cur_point = std::chrono::steady_clock::now();
-    cout << "Elapsed " << std::chrono::duration_cast<std::chrono::seconds> (cur_point - start_point).count() << " sec" << std::endl;
+    cur_point = chrono::steady_clock::now();
+    cout << "Elapsed " << chrono::duration_cast<chrono::seconds> (cur_point - start_point).count() << " sec" << endl;
 
     stringstream sstream_cms;
     sstream_cms << "cms_esodls_n" << n << "_new.txt";
@@ -598,10 +598,10 @@ int main(int argc, char *argv[]) {
     assert(cms_from_file.size() > 0);
 
     set<matrix_t> diff_set;
-    std::set_difference(
+    set_difference(
         cms_from_file.begin(), cms_from_file.end(),
         esodls_cms_set.begin(), esodls_cms_set.end(),
-        std::inserter(diff_set, diff_set.end()));
+        inserter(diff_set, diff_set.end()));
     assert(cms_from_file.size() == esodls_cms_set.size() and diff_set.empty());
     cout << "CMS set is correct" << endl;
     cms_from_file.clear();
@@ -629,53 +629,53 @@ int main(int argc, char *argv[]) {
     }
     main_class_file.close();
 
-    cur_point = std::chrono::steady_clock::now();
-    cout << "Elapsed " << std::chrono::duration_cast<std::chrono::seconds> (cur_point - start_point).count() << " sec" << std::endl;
+    cur_point = chrono::steady_clock::now();
+    cout << "Elapsed " << chrono::duration_cast<chrono::seconds> (cur_point - start_point).count() << " sec" << endl;
 
     // Find all distinct ESODLS with ascending first row:
     cout << "Generaring DLS with ascending first row" << endl;
-    set<vector<short int>> dls_ascending_row_set;
+    set<string> dls_ascending_row_set;
     k=0;
     for (auto &dls : dls_main_class_repres_set) {
         vector<matrix_t> dls_ascending_row = find_all_dls_with_ascending_row_from_main_class(dls, esodls_cms_set);
         for (auto &dls_asc_row : dls_ascending_row) {
-            vector<short int> dls_usi_vec;
-            short int usi = 0;
-            unsigned digits_num = 0;
+            string dls_str;
             for (auto &row : dls_asc_row) {
                 for (auto &x : row) {
                     assert(x >= 0 and x < 11);
-                    if (digits_num == 4) {
-                        dls_usi_vec.push_back(usi);
-                        digits_num = 0;
-                        usi = 0;
-                    }
-                    usi += x*(short int)pow(10, digits_num);
-                    digits_num++;
+                    dls_str += to_string(x);
                 }
             }
-            dls_ascending_row_set.insert(dls_usi_vec);
+            dls_ascending_row_set.insert(dls_str);
         }
         k++;
         if (k % 1000 == 0) cout << k << " main classes out of " << dls_main_class_repres_set.size() << " processed" << endl;
     }
     cout << dls_ascending_row_set.size() << " DLS with ascending first row" << endl;
+    stringstream sstream_first_row_fname;
+    sstream_first_row_fname << "esolds_ascending_first_row_n=" << n;
+    string first_row_fname = sstream_first_row_fname.str();
+    ofstream first_row_file(first_row_fname, ios_base::out);
+    for (auto &dls : dls_ascending_row_set) {
+        first_row_file << endl;
+    }
+    first_row_file.close();
     dls_ascending_row_set.clear();
 
-    cur_point = std::chrono::steady_clock::now();
-    cout << "Elapsed " << std::chrono::duration_cast<std::chrono::seconds> (cur_point - start_point).count() << " sec" << std::endl;
+    cur_point = chrono::steady_clock::now();
+    cout << "Elapsed " << chrono::duration_cast<chrono::seconds> (cur_point - start_point).count() << " sec" << endl;
 
     vector<matrix_t> x_based_basic_partial_dls = generate_x_based_basic_partial_dls(n);
     cout << x_based_basic_partial_dls.size() << " basic X-based fillings" << endl;
-    cur_point = std::chrono::steady_clock::now();
-    cout << "Elapsed " << std::chrono::duration_cast<std::chrono::seconds> (cur_point - start_point).count() << " sec" << std::endl;
+    cur_point = chrono::steady_clock::now();
+    cout << "Elapsed " << chrono::duration_cast<chrono::seconds> (cur_point - start_point).count() << " sec" << endl;
 
     cout << "Finding main class representatives for X-based partial fillings" << endl;
     set<matrix_t> x_based_main_class_repres_set = find_main_class_repres_set(x_based_basic_partial_dls, esodls_cms_set);
     esodls_cms_set.clear();
     cout << "X-based partial filling main classes : " << x_based_main_class_repres_set.size() << endl;
-    cur_point = std::chrono::steady_clock::now();
-    cout << "Elapsed " << std::chrono::duration_cast<std::chrono::seconds> (cur_point - start_point).count() << " sec" << std::endl;
+    cur_point = chrono::steady_clock::now();
+    cout << "Elapsed " << chrono::duration_cast<chrono::seconds> (cur_point - start_point).count() << " sec" << endl;
     stringstream sstream;
     sstream << "x_fillings_n" << n << "_new.txt";
     string x_fname = sstream.str();
@@ -697,8 +697,8 @@ int main(int argc, char *argv[]) {
     }
     ofile.close();
 
-    cur_point = std::chrono::steady_clock::now();
-    cout << "Elapsed " << std::chrono::duration_cast<std::chrono::seconds> (cur_point - start_point).count() << " sec" << std::endl;
+    cur_point = chrono::steady_clock::now();
+    cout << "Elapsed " << chrono::duration_cast<chrono::seconds> (cur_point - start_point).count() << " sec" << endl;
 
     return 0;
 }
