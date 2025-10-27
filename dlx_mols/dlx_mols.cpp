@@ -30,7 +30,7 @@
 using namespace std;
 
 string program = "dlx_mols";
-string version = "0.2.4";
+string version = "0.2.5";
 
 struct Record_orth_char_result {
 	latinsquare_t square;
@@ -243,11 +243,12 @@ int main(int argc, char *argv[])
 
 	unsigned k = 0;
 	unsigned report_per_task = 10000;
+	vector<latinsquare_t> first_found_record_triple;
+	first_found_record_triple.resize(3);
 	if (cpu_num >= 10) report_per_task = 100000;
 	if (cpu_num >= 100) report_per_task = 1000000;
 	// There are plenty of simple tasks, so static distribution sounds here:
-	//#pragma omp parallel for schedule(static, 1000)
-	#pragma omp parallel for schedule(static, 1000)
+	#pragma omp parallel for schedule(static, 100)
 	for (auto &square : squares) {
 		if ((k % report_per_task == 0) && (k > 0)) cout << k << " squares processed" << endl;
 		LS_result ls_res = DLX_orth::find_transversals_and_orth_mates(square);
@@ -314,6 +315,10 @@ int main(int argc, char *argv[])
 						max_orth_char = orth_char;
 						cout << "Updated max_orth_char : " << max_orth_char << endl;
 						cout << current_time(program_start) << endl;
+						assert(first_found_record_triple.size() == 3);
+						first_found_record_triple[0] = square;
+						first_found_record_triple[1] = ls_res.orth_mates[j];
+						first_found_record_triple[2] = ls_res.orth_mates[j2];
 					}
 				}
 				// Save squares with the thread-wise record orth char:
@@ -341,6 +346,18 @@ int main(int argc, char *argv[])
 		}
 	}
 	cout << record_squares.size() << " squares with maximum orthogonal char " << max_orth_char << endl;
+	// Print the first found record triple:
+	cout << "First found record triple :" << endl;
+	assert(first_found_record_triple.size() == 3);
+	for (auto &dls : first_found_record_triple) {
+		for (auto &row : dls) {
+			for (auto &elem : row) {
+				cout << elem << " ";
+			}
+			cout << endl;
+		}
+		cout << endl;
+	}
 	// Write the record squares to a file:
 	string base_filename = filename;
 	base_filename.erase(remove(base_filename.begin(), base_filename.end(), '.'), base_filename.end());
