@@ -35,7 +35,7 @@
 using namespace std;
 
 string program = "sat_enumeration_brown_dls";
-string version = "0.2.0";
+string version = "0.4.0";
 
 struct SatEncDls {
     vector<vector<cell_t>> X;
@@ -43,16 +43,22 @@ struct SatEncDls {
     vector<clause_t> clauses;
 };
 
+enum DlsType {
+    NO_ELEMENT_KNOWN,
+    FIRST_ROW_ASCENDING,
+    FIRST_COLUMN_ASCENDING
+};
+
 string clause_to_str(const clause_t &cla);
 vector<clause_t> at_most_one_clauses(vector<unsigned> &vars);
 vector<clause_t> exactly_one_clauses(vector<unsigned> &vars);
 vector<clause_t> latin_square_clauses(const vector<vector<cell_t>> &X, const bool &is_diag);
-SatEncDls diag_latin_square(const unsigned &n, const bool &is_first_row_ascending);
+SatEncDls diag_latin_square(const unsigned &n, const DlsType &dls_type);
 vector<clause_t> equality_clauses(const unsigned &x, const unsigned &y);
-vector<clause_t> vertical_symmetry_clauses(const vector<vector<cell_t>> &X,
-                                           const unsigned &n, const cover_t &cover);
 vector<clause_t> horizontal_symmetry_clauses(const vector<vector<cell_t>> &X,
                                              const unsigned &n);
+vector<clause_t> vertical_symmetry_clauses(const vector<vector<cell_t>> &X,
+                                           const unsigned &n);
 int conseq_multip(const int &lower_bound, const int &upper_bound);
 vector<vector<int>> combinations(const int &n, const int &k);
 vector<cover_t> gen_covers(const unsigned &n);
@@ -113,20 +119,19 @@ int main(int argc, char *argv[])
 	std::cout << "threads       : " << nthreads << std::endl;
 	omp_set_num_threads(nthreads);
 
-    // Make a CNF that encodes a diagonal Latin square of order n:
-    SatEncDls satencdls = diag_latin_square(n, true);
-    cout << satencdls.vars_num << " variables encode DLS" << endl;
-    cout << satencdls.clauses.size() << " clauses encode DLS" << endl;
-
-    string cnf_dls_fname = "dls_n" + to_string(n) + "_first_row_ascending.cnf";
-    //cout << "Writing a CNF for DLS to the file " << cnf_dls_fname << endl;
-    ofstream ofile(cnf_dls_fname, ios_base::out);
-    ofile << "p cnf " + to_string(satencdls.vars_num) + " " + to_string(satencdls.clauses.size()) + "\n";
-    for (auto &cla : satencdls.clauses) ofile << clause_to_str(cla) + '\n';
-    ofile.close();
+    // Make a CNF that encodes a diagonal Latin square of order n with the first row 0, 1, ... , n-1:
+    SatEncDls satencdls_firstrowasc = diag_latin_square(n, FIRST_ROW_ASCENDING);
+    cout << satencdls_firstrowasc.vars_num << " variables encode a DLS with the first row in the ascending order" << endl;
+    cout << satencdls_firstrowasc.clauses.size() << " clauses" << endl;
+    string cnf_dls_fname_firstrowasc = "dls_n" + to_string(n) + "_first_row_ascending.cnf";
+    cout << "CNF file name : " << cnf_dls_fname_firstrowasc << endl;
+    ofstream file_cnf_dls_firstrowasc(cnf_dls_fname_firstrowasc, ios_base::out);
+    file_cnf_dls_firstrowasc << "p cnf " + to_string(satencdls_firstrowasc.vars_num) + 
+        " " + to_string(satencdls_firstrowasc.clauses.size()) + "\n";
+    for (auto &cla : satencdls_firstrowasc.clauses) file_cnf_dls_firstrowasc << clause_to_str(cla) + '\n';
+    file_cnf_dls_firstrowasc.close();
 
     vector<cover_t> covers = gen_covers(n);
-
     cout << "After covers generation " << current_time(program_start) << endl;
 
     // Independent set of main classes for each cover to avoid the concurrency-thread issue:
@@ -138,7 +143,7 @@ int main(int argc, char *argv[])
     for (unsigned cover_index=0; cover_index < covers.size(); cover_index++) {
         cout << "Cover " << cover_index << ". Start. " << current_time(program_start) << endl;
         // For each cover, generate a CNF that encodes horizontal-symmetry and this very row-inverted cover:
-        string horiz_sym_cnf_fname = generate_cnf_brown_dls_horiz_sym(n, satencdls, covers[cover_index], cover_index);
+        string horiz_sym_cnf_fname = generate_cnf_brown_dls_horiz_sym(n, satencdls_firstrowasc, covers[cover_index], cover_index);
         vector<string> ls_str_arr_horiz = find_all_dls_sat_solver(horiz_sym_cnf_fname, n, cover_index);
         if (ls_str_arr_horiz.size() > 0) {
             cout << "Cover " << cover_index << ". After finding and parsing all horiz DLS from sat assignments. " << current_time(program_start) << endl;
@@ -177,6 +182,18 @@ int main(int argc, char *argv[])
     cout << "Total " << final_horiz_main_class_repres_set.size() << " horiz main classes" << endl;
     cout << endl;
 
+    // Make a CNF that encodes a diagonal Latin square of order n with the first column 0, 1, ... , n-1:
+    SatEncDls satencdls_firstcolasc = diag_latin_square(n, FIRST_COLUMN_ASCENDING);
+    cout << satencdls_firstcolasc.vars_num << " variables encode a DLS with the first column in the ascending order" << endl;
+    cout << satencdls_firstcolasc.clauses.size() << " clauses" << endl;
+    string cnf_dls_fname_firstcolasc = "dls_n" + to_string(n) + "_first_column_ascending.cnf";
+    cout << "CNF file name : " << cnf_dls_fname_firstcolasc << endl;
+    ofstream file_cnf_dls_firstcolasc(cnf_dls_fname_firstcolasc, ios_base::out);
+    file_cnf_dls_firstcolasc << "p cnf " + to_string(satencdls_firstcolasc.vars_num) + 
+        " " + to_string(satencdls_firstcolasc.clauses.size()) + "\n";
+    for (auto &cla : satencdls_firstcolasc.clauses) file_cnf_dls_firstcolasc << clause_to_str(cla) + '\n';
+    file_cnf_dls_firstcolasc.close();
+
     // Independent set of main classes for each cover to avoid the concurrency-thread issue:
     vector<lsset_t> coverwise_vertic_main_class_repres_set;
     coverwise_vertic_main_class_repres_set.resize(covers.size());
@@ -186,7 +203,7 @@ int main(int argc, char *argv[])
     for (unsigned cover_index=0; cover_index < covers.size(); cover_index++) {
         cout << "Cover " << cover_index << ". Start. " << current_time(program_start) << endl;
         // For each cover, generate a CNF that encodes vertical-symmetry and this very column-inverted cover:
-        string vertic_sym_cnf_fname = generate_cnf_brown_dls_vertic_sym(n, satencdls, covers[cover_index], cover_index);
+        string vertic_sym_cnf_fname = generate_cnf_brown_dls_vertic_sym(n, satencdls_firstcolasc, covers[cover_index], cover_index);
         vector<string> ls_str_arr_vertic = find_all_dls_sat_solver(vertic_sym_cnf_fname, n, cover_index);
         if (ls_str_arr_vertic.size() > 0) {
             cout << "Cover " << cover_index << ". After finding and parsing all vertic DLS from sat assignments. " << current_time(program_start) << endl;
@@ -200,12 +217,20 @@ int main(int argc, char *argv[])
             }
         }
         if (ls_str_arr_vertic.size() > 0) {
+            vector<string> normalized_ls_str_arr_vertic;
+            normalized_ls_str_arr_vertic.resize(ls_str_arr_vertic.size());
+            // Right now in all vertically symmetric DLS are normalized by the first column;
+            // To compare with horizontally symmetric ones, normalize by the first row:
+            for (unsigned i=0; i<ls_str_arr_vertic.size(); i++) {
+                normalized_ls_str_arr_vertic[i] = normalize(ls_str_arr_vertic[i], n);
+                cout << normalized_ls_str_arr_vertic[i] << endl;
+            }
             assert(coverwise_vertic_main_class_repres_set[cover_index].size() > 0);
             cout << "Cover " << cover_index << ". After forming all vertic main class representatives. " << current_time(program_start) << endl;
             string brown_dls_cover_fname = "brown_dls_n" + to_string(n) + "_cover" + to_string(cover_index) + "_vertic";
             cout << "Writing squares to file " << brown_dls_cover_fname << endl;
             ofstream ofile(brown_dls_cover_fname, ios_base::out);
-            for (auto &ls : ls_str_arr_vertic) ofile << ls << endl;
+            for (auto &ls : normalized_ls_str_arr_vertic) ofile << ls << endl;
             ofile.close();
         }
         processed++;
@@ -355,7 +380,7 @@ vector<clause_t> latin_square_clauses(const vector<vector<cell_t>> &X, const boo
     return dls_clauses;
 }
 
-SatEncDls diag_latin_square(const unsigned &n, const bool &is_first_row_ascending) {
+SatEncDls diag_latin_square(const unsigned &n, const DlsType &dls_type) {
     assert(n > 0 and n < 11);
     // n^3 variables in the CNF encode a Latin square:
     vector<vector<cell_t>> X(n, vector<cell_t>(n, cell_t(n, 0)));
@@ -369,9 +394,15 @@ SatEncDls diag_latin_square(const unsigned &n, const bool &is_first_row_ascendin
     }
     // The first row in ascending order:
     vector<clause_t> clauses;
-    if (is_first_row_ascending) {
+    if (dls_type == FIRST_ROW_ASCENDING) {
         for (unsigned j=0; j<n; j++) {
             clause_t cla = {(int)X[0][j][j]};
+            clauses.push_back(cla);
+        }
+    }
+    else if (dls_type == FIRST_COLUMN_ASCENDING) {
+        for (unsigned j=0; j<n; j++) {
+            clause_t cla = {(int)X[j][0][j]};
             clauses.push_back(cla);
         }
     }
@@ -399,24 +430,7 @@ vector<clause_t> equality_clauses(const unsigned &x, const unsigned &y) {
     return clauses;
 }
 
-vector<clause_t> vertical_symmetry_clauses(const vector<vector<cell_t>> &X, const unsigned &n, const cover_t &cover) {
-    assert(n > 0 and n < 11);
-    assert(n % 2 == 0 and X.size() == n);
-    vector<clause_t> res_clauses;
-    unsigned half_n = (unsigned)(n/2);
-    assert(cover.size() == half_n);
-    for (unsigned i=0; i<half_n; i++) { // for each row 0 .. (n/2)-1
-        for (unsigned j=0; j<n; j++) { // for each column
-            for (auto &inverse_columns_indices : cover) {
-                assert(inverse_columns_indices.size() == 2);
-                vector<clause_t> eq_clauses = equality_clauses(X[i][j][inverse_columns_indices[0]], X[n-1-i][j][inverse_columns_indices[1]]);
-                for (auto &cla : eq_clauses) res_clauses.push_back(cla);
-            }
-        }
-    }
-    return res_clauses;
-}
-
+// The sum of symmetric cells across the central vertical line is equal to n-1 (if the first row is 0, 1, ..., n-1): 
 vector<clause_t> horizontal_symmetry_clauses(const vector<vector<cell_t>> &X, const unsigned &n) {
     assert(n > 0 and n < 11);
     assert(n % 2 == 0 and X.size() == n);
@@ -427,6 +441,23 @@ vector<clause_t> horizontal_symmetry_clauses(const vector<vector<cell_t>> &X, co
             for (unsigned k=0; k<n; k++) { // for each cell's value
                 // x[i][j] == n-1-x[i][n-1-j]
                 vector<clause_t> eq_clauses = equality_clauses(X[i][j][k], X[i][n-1-j][n-1-k]);
+                for (auto &cla : eq_clauses) res_clauses.push_back(cla);
+            }
+        }
+    }
+    return res_clauses;
+}
+
+// The sum of symmetric cells across the central horizontal line is equal to n-1 (if the first column is 0, 1, ..., n-1): 
+vector<clause_t> vertical_symmetry_clauses(const vector<vector<cell_t>> &X, const unsigned &n) {
+    assert(n > 0 and n < 11);
+    assert(n % 2 == 0 and X.size() == n);
+    vector<clause_t> res_clauses;
+    unsigned half_n = (unsigned)(n/2);
+    for (unsigned i=0; i<n; i++) { // for each column
+        for (unsigned j=0; j<half_n; j++) { // for each row 0 .. (n/2)-1
+            for (unsigned k=0; k<n; k++) { // for each cell's value
+                vector<clause_t> eq_clauses = equality_clauses(X[j][i][k], X[n-1-j][i][n-1-k]);
                 for (auto &cla : eq_clauses) res_clauses.push_back(cla);
             }
         }
@@ -555,44 +586,6 @@ string replace(const string &str, const string &orig_substr, const string &repl_
     return str.substr(0, pos) + repl_substr + str.substr(pos+orig_substr.size(), str.size()-pos-orig_substr.size());
 }
 
-string generate_cnf_brown_dls_vertic_sym(const unsigned &n,
-                                         const SatEncDls &satencdls,
-                                         const cover_t &cover,
-                                         const unsigned &cover_index) {
-    assert(n > 0 and n % 2 == 0);
-    assert(satencdls.vars_num > 0);
-    assert(satencdls.X.size() > 0);
-    assert(satencdls.clauses.size() > 0);
-    assert(cover.size() == (unsigned)(n/2));
-    // Add constraints for horizontal symmetry:
-    vector<clause_t> vertic_sym_clauses = vertical_symmetry_clauses(satencdls.X, n, cover);
-    //cout << vertic_sym_clauses.size() << " clauses encode vertical symmetry" << endl;
-    assert(vertic_sym_clauses.size() > 0);
-    // Inverse-columns for a given cover:
-    vector<clause_t> all_eq_clauses;
-    for (auto &inverse_columns_indices : cover) {
-        assert(inverse_columns_indices.size() == 2);
-        for (unsigned i=0; i<n; i++) {
-            for (unsigned k=0; k<n; k++) {
-                vector<clause_t> eq_clauses = equality_clauses(satencdls.X[i][inverse_columns_indices[0]][k],
-                                                               satencdls.X[n-1-i][inverse_columns_indices[1]][k]);
-                for (auto &cla : eq_clauses) all_eq_clauses.push_back(cla);
-            }
-        }
-    }
-     // Write CNF to file:
-    string cnf_name = "dls_n" + to_string(n) + "_first_row_ascending_vertic_sym_inverse_rows_" + to_string(cover_index) + ".cnf";
-    //cout << "Writing CNF for DLS with vertical symmetry and inverse columns to file " << cnf_name << endl;
-    const unsigned cla_num = satencdls.clauses.size() + vertic_sym_clauses.size() + all_eq_clauses.size();
-    ofstream ofile(cnf_name, ios_base::out);
-    ofile << "p cnf " + to_string(satencdls.vars_num) + " " + to_string(cla_num) + "\n";
-    for (auto &cla : satencdls.clauses) ofile << clause_to_str(cla) + "\n";
-    for (auto &cla : vertic_sym_clauses) ofile << clause_to_str(cla) + "\n";
-    for (auto &cla : all_eq_clauses) ofile << clause_to_str(cla) + "\n";
-    ofile.close();
-    return cnf_name;
-}
-
 string generate_cnf_brown_dls_horiz_sym(const unsigned &n,
                                         const SatEncDls &satencdls,
                                         const cover_t &cover,
@@ -626,6 +619,44 @@ string generate_cnf_brown_dls_horiz_sym(const unsigned &n,
     ofile << "p cnf " + to_string(satencdls.vars_num) + " " + to_string(cla_num) + "\n";
     for (auto &cla : satencdls.clauses) ofile << clause_to_str(cla) + "\n";
     for (auto &cla : horiz_sym_clauses) ofile << clause_to_str(cla) + "\n";
+    for (auto &cla : all_eq_clauses) ofile << clause_to_str(cla) + "\n";
+    ofile.close();
+    return cnf_name;
+}
+
+string generate_cnf_brown_dls_vertic_sym(const unsigned &n,
+                                         const SatEncDls &satencdls,
+                                         const cover_t &cover,
+                                         const unsigned &cover_index) {
+    assert(n > 0 and n % 2 == 0);
+    assert(satencdls.vars_num > 0);
+    assert(satencdls.X.size() > 0);
+    assert(satencdls.clauses.size() > 0);
+    assert(cover.size() == (unsigned)(n/2));
+    // Add constraints for vertical symmetry:
+    vector<clause_t> vertic_sym_clauses = vertical_symmetry_clauses(satencdls.X, n);
+    //cout << vertic_sym_clauses.size() << " clauses encode vertical symmetry" << endl;
+    assert(vertic_sym_clauses.size() > 0);
+    // Inverse-columns for a given cover:
+    vector<clause_t> all_eq_clauses;
+    for (auto &inverse_columns_indices : cover) {
+        assert(inverse_columns_indices.size() == 2);
+        for (unsigned i=0; i<n; i++) {
+            for (unsigned k=0; k<n; k++) {
+                vector<clause_t> eq_clauses = equality_clauses(satencdls.X[i][inverse_columns_indices[0]][k],
+                                                               satencdls.X[n-1-i][inverse_columns_indices[1]][k]);
+                for (auto &cla : eq_clauses) all_eq_clauses.push_back(cla);
+            }
+        }
+    }
+    // Write CNF to file:
+    string cnf_name = "dls_n" + to_string(n) + "_first_column_ascending_vertic_sym_inverse_columns_" + to_string(cover_index) + ".cnf";
+    //cout << "Writing CNF for DLS with vertical symmetry and inverse columns to file " << cnf_name << endl;
+    const unsigned cla_num = satencdls.clauses.size() + vertic_sym_clauses.size() + all_eq_clauses.size();
+    ofstream ofile(cnf_name, ios_base::out);
+    ofile << "p cnf " + to_string(satencdls.vars_num) + " " + to_string(cla_num) + "\n";
+    for (auto &cla : satencdls.clauses) ofile << clause_to_str(cla) + "\n";
+    for (auto &cla : vertic_sym_clauses) ofile << clause_to_str(cla) + "\n";
     for (auto &cla : all_eq_clauses) ofile << clause_to_str(cla) + "\n";
     ofile.close();
     return cnf_name;
@@ -775,7 +806,7 @@ set<matrix_t> read_cms(const string &filename, const unsigned &n) {
 	return cms_set;
 }
 
-// Normalize LS, i.e. make its main diagonal 0, 1, ..., n-1
+// Normalize LS by the first row, i.e. make it 0, 1, ..., n-1
 string normalize(const string &ls, const unsigned &n) {
     assert(n > 0 and n < 11);
     string norm_ls(n*n, '-');
@@ -783,7 +814,7 @@ string normalize(const string &ls, const unsigned &n) {
     // Element in permutation is i if its index is i-th element in main diag:
     for (unsigned i = 0; i < n; i++) {
         // Here ls[i*n + i] - '0' is char->int convertion to get index:
-        norm_perm[ls[i*n + i] - '0'] = (char)i + '0';
+        norm_perm[ls[i] - '0'] = (char)i + '0';
     }
     for (unsigned i = 0; i < n; i++) {
         for (unsigned j = 0; j < n; j++) {
@@ -791,7 +822,7 @@ string normalize(const string &ls, const unsigned &n) {
         }
     }
     for (unsigned i = 0; i < n; i++) {
-        assert(norm_ls[i*n + i] == (char)i + '0');
+        assert(norm_ls[i] == (char)i + '0');
     }
     return norm_ls;
 }
