@@ -35,7 +35,7 @@
 using namespace std;
 
 string program = "sat_enumeration_brown_dls";
-string version = "0.4.0";
+string version = "0.4.1";
 
 struct SatEncDls {
     vector<vector<cell_t>> X;
@@ -223,7 +223,7 @@ int main(int argc, char *argv[])
             // To compare with horizontally symmetric ones, normalize by the first row:
             for (unsigned i=0; i<ls_str_arr_vertic.size(); i++) {
                 normalized_ls_str_arr_vertic[i] = normalize(ls_str_arr_vertic[i], n);
-                cout << normalized_ls_str_arr_vertic[i] << endl;
+                //cout << normalized_ls_str_arr_vertic[i] << endl;
             }
             assert(coverwise_vertic_main_class_repres_set[cover_index].size() > 0);
             cout << "Cover " << cover_index << ". After forming all vertic main class representatives. " << current_time(program_start) << endl;
