@@ -30,7 +30,7 @@
 using namespace std;
 
 string program = "dlx_mols";
-string version = "0.2.5";
+string version = "0.2.6";
 
 struct Record_orth_char_result {
 	latinsquare_t square;
@@ -248,7 +248,7 @@ int main(int argc, char *argv[])
 	if (cpu_num >= 10) report_per_task = 100000;
 	if (cpu_num >= 100) report_per_task = 1000000;
 	// There are plenty of simple tasks, so static distribution sounds here:
-	#pragma omp parallel for schedule(static, 100)
+	#pragma omp parallel for schedule(static, 1000)
 	for (auto &square : squares) {
 		if ((k % report_per_task == 0) && (k > 0)) cout << k << " squares processed" << endl;
 		LS_result ls_res = DLX_orth::find_transversals_and_orth_mates(square);
