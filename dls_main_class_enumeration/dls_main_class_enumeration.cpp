@@ -28,7 +28,7 @@ using namespace std;
 #define matrix_t vector<row_t>
 
 string prog = "dls_main_class_enumeration";
-string version = "0.2.10";
+string version = "0.2.11";
 
 void print(matrix_t matrix) {
     for (auto &row : matrix) {
@@ -657,7 +657,7 @@ int main(int argc, char *argv[]) {
     string first_row_fname = sstream_first_row_fname.str();
     ofstream first_row_file(first_row_fname, ios_base::out);
     for (auto &dls : dls_ascending_row_set) {
-        first_row_file << endl;
+        first_row_file << dls << endl;
     }
     first_row_file.close();
     dls_ascending_row_set.clear();
