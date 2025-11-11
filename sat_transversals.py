@@ -12,9 +12,10 @@ import sys
 import itertools
 import math
 import os
+import itertools
 
 script = "sat_transversals.py"
-version = "0.0.1"
+version = "0.0.2"
 
 # Return clauses that encode the AtMostOne constraint:
 def at_most_one_clauses(vars : list):
@@ -69,6 +70,33 @@ def first_row_asending_clauses(A : list):
 	res_clauses = []
 	for j in range(ls_order):
 		res_clauses.append([A[0][j][j]])
+	return res_clauses
+
+def known_main_diagonal_clauses(A : list):
+	ls_order = len(A)
+	assert(ls_order > 0)
+	res_clauses = []
+	# Main diagonal is in the ascending order 0, 1, ... , n-1
+	for i in range(ls_order):
+		res_clauses.append([A[i][i][i]])
+	perms = list(itertools.permutations([i for i in range(ls_order)]))
+	#print(perms)
+	possible_main_antidiags = []
+	for p in perms:
+		is_suit = True
+		for j in range(len(p)):
+			if p[j] == j or p[j] == ls_order-1-j:
+				is_suit = False
+				break
+		if is_suit:
+			possible_main_antidiags.append(p)
+	#print(possible_main_antidiags)
+	assert(len(possible_main_antidiags) > 0)
+	print(str(len(possible_main_antidiags)) + ' possible main antidiagonals')
+	# Main antidiagonal is also known.
+	# This is the first possible value if the main diagonal is in the ascending order.
+	for i in range(ls_order):
+		res_clauses.append([A[ls_order-1-i][i][possible_main_antidiags[0][i]]])
 	return res_clauses
 
 def transversals_clauses(ls_order : int, ls_variables : list, cpindex_variables : list, transversals_variables : list, is_diag : bool):
@@ -234,7 +262,7 @@ def is_eo_array_correct(array : list):
 
 ### Main function:
 if len(sys.argv) < 3:
-	print('Usage : ls-order transversals-num [--diag]')
+	print('Usage : ls-order transversals-num [--diag] [--split]')
 	print('  ls-order : order of Latin squares')
 	print('  transversals-num : number of transversals to be found')
 	print('  --diag   : if given, then both Latin sqaures are diagonal')
@@ -252,9 +280,13 @@ assert(transversals_num > 0)
 is_diag = False
 if len(sys.argv) > 2 and '--diag' in sys.argv[3:]:
 	is_diag = True
+is_split = False
+if len(sys.argv) > 2 and '--split' in sys.argv[3:]:
+	is_split = True
 print('ls_order         : ' + str(ls_order))
 print('transversals_num : ' + str(transversals_num))
 print('is_diag          : ' + str(is_diag))
+print('is_split         : ' + str(is_split))
 
 vars_num = 0
 
@@ -277,10 +309,14 @@ ls_clauses_num = len(clauses)
 print(str(vars_num) + ' variables encode Latin square')
 print(str(ls_clauses_num) + ' clauses encode Latin squares constraints')
 
-first_row_clauses = first_row_asending_clauses(ls_variables)
-clauses += first_row_clauses
-
-print(str(len(first_row_clauses)) + ' clauses encode that the first row is in the ascending order')
+if is_split:
+	split_clauses = known_main_diagonal_clauses(ls_variables)
+	clauses += split_clauses
+	print(str(len(split_clauses)) + ' clauses encode that 2 main diagonals are known')
+else:
+	first_row_clauses = first_row_asending_clauses(ls_variables)
+	clauses += first_row_clauses
+	print(str(len(first_row_clauses)) + ' clauses encode that the first row is in the ascending order')
 
 # More ls_order^2 variables encode each transversal.
 transversals_variables = [[[0 for k in range(ls_order)] for j in range(ls_order)] for trv_index in range(transversals_num)]
@@ -351,8 +387,14 @@ print(str(vars_num) + ' variables in total')
 print(str(len(clauses)) + ' clauses in total')
 
 cnf_name = "transversals_n=" + str(ls_order) + '_' + str(transversals_num) + 'trvs' 
+solver = 'kissat4.0.3'
+res_solver_fname = 'out_n=' + str(ls_order) + '_' + str(transversals_num) + 'trvs'
 if is_diag:
 	cnf_name += '_diag'
+	res_solver_fname += '_diag'
+if is_split:
+	cnf_name += '_split'
+	res_solver_fname += '_split'
 cnf_name += '.cnf'
 
 print('Writing to file ' + cnf_name + ' ...')
@@ -364,10 +406,6 @@ with open(cnf_name, 'w') as ofile:
 			s += str(lit) + ' '
 		ofile.write(s + '0\n')
 
-solver = 'kissat4.0.3'
-res_solver_fname = 'out_n=' + str(ls_order) + '_' + str(transversals_num) + 'trvs'
-if is_diag:
-	res_solver_fname += '_diag'
 command = solver + ' ' + cnf_name + ' > ' + res_solver_fname
 print(command)
 os.system(command)
