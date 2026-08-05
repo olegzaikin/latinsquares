@@ -35,7 +35,7 @@
 using namespace std;
 
 string program = "sat_enumeration_brown_dls";
-string version = "0.4.1";
+string version = "0.4.2";
 
 struct SatEncDls {
     vector<vector<cell_t>> X;
@@ -99,7 +99,10 @@ int main(int argc, char *argv[])
 
     unsigned n = 0;
     istringstream(argv_str[1]) >> n;
-    assert(n > 1 and n < 11 and n % 2 == 0);
+    if ( ((n < 2) or (n > 10)) or (n % 2 != 0) ) {
+        cerr << "Error. n must be >= 2, <= 10, and even." << endl;
+        exit(1);
+    }
     cout << "Running " << program << " of version " << version << endl;
     cout << "n : " << n << endl;
     string cms_fname = "";
@@ -108,7 +111,10 @@ int main(int argc, char *argv[])
     cms_fname = argv_str[2];
     cout << "CMS file name : " << cms_fname << endl;
     cms_set = read_cms(cms_fname, n);
-    assert(cms_set.size() > 0);
+    if ( cms_set.empty() ) {
+        cerr << "Error. CMS set is empty." << endl;
+        exit(1);
+    }
     cout << cms_set.size() << " CMS were read" << endl;
 
     string s = str_after_prefix(argv_str[3], "-cpunum=");
