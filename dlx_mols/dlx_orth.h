@@ -34,12 +34,12 @@ namespace DLX_orth {
 	void choose_c(DLX_column &h, DLX_column *&c);
 	void square_to_DLX(DLX_column &root, const latinsquare_t square, vector<DLX_column*> &elements, const bool is_diag);
 	void transversals_to_dlx(DLX_column &root, vector<vector<int>> &tvset, vector<DLX_column*> &elements);
-	void find_all_transversals(int k, DLX_column &h, vector<DLX_column*> &ps, vector<transversal_t> &tvr);
+	void find_transversals(int k, DLX_column &h, vector<DLX_column*> &ps, vector<transversal_t> &tvr);
 	vector<vector<int>> find_tv_dlx(const latinsquare_t square, const bool is_diag);
 	bool is_diag_latinsquare(const latinsquare_t square);
 	bool is_latinsquare(const latinsquare_t square);
-	vector<latinsquare_t> find_all_orth_mates(const latinsquare_t square);
-	LS_result find_transversals_and_orth_mates(const latinsquare_t square);
+	vector<latinsquare_t> find_orth_mates(const latinsquare_t square);
+	LS_result find_diag_orth_mates(const latinsquare_t square);
 };
 
 #endif

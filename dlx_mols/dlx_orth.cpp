@@ -291,7 +291,7 @@ void DLX_orth::transversals_to_dlx(DLX_column &root, vector<vector<int>> &tvset,
 
 }
 
-void DLX_orth::find_all_transversals(int k, DLX_column &h, vector<DLX_column*> &ps, vector<transversal_t> &tvr) {
+void DLX_orth::find_transversals(int k, DLX_column &h, vector<DLX_column*> &ps, vector<transversal_t> &tvr) {
 	//pd = partial solution
 	if (h.Right == &h) {
 		vector<int> tmpv;
@@ -317,7 +317,7 @@ void DLX_orth::find_all_transversals(int k, DLX_column &h, vector<DLX_column*> &
 				j = j->Right;
 			}
 
-			find_all_transversals(k + 1, h, ps, tvr);
+			find_transversals(k + 1, h, ps, tvr);
 
 			r = ps.back();
 			//questionable.
@@ -346,7 +346,7 @@ vector<vector<int>> DLX_orth::find_tv_dlx(const latinsquare_t square, const bool
 	vector<DLX_column*> ps;
 	ps.clear();
 	vector<vector<int>> tvr;
-	find_all_transversals(0, *root, ps, tvr);
+	find_transversals(0, *root, ps, tvr);
 	
 	//cout << "Found " << tvr.size() << " transversals\n";
 	for (int i = 0; i < tvr.size(); i++) {		
@@ -365,7 +365,7 @@ vector<vector<int>> DLX_orth::find_tv_dlx(const latinsquare_t square, const bool
 }
 
 // Find all orthogonal mates for a given Latin square:
-vector<latinsquare_t> DLX_orth::find_all_orth_mates(const latinsquare_t square) {
+vector<latinsquare_t> DLX_orth::find_orth_mates(const latinsquare_t square) {
 	const unsigned n = square.size();
 	assert(is_latinsquare(square));
 	bool is_diag = true;
@@ -377,7 +377,7 @@ vector<latinsquare_t> DLX_orth::find_all_orth_mates(const latinsquare_t square) 
 	vector<DLX_column*> ps;
 	ps.clear();
 	vector<transversal_t> transversals;
-	find_all_transversals(0, *root, ps, transversals);
+	find_transversals(0, *root, ps, transversals);
 	for (int i = 0; i < transversals.size(); i++) {
 		sort(transversals[i].begin(), transversals[i].end());
 	}
@@ -406,14 +406,14 @@ vector<latinsquare_t> DLX_orth::find_all_orth_mates(const latinsquare_t square) 
 	return orth_mates;
 }
 
-// Find all orthogonal mates for a given Latin square:
-LS_result DLX_orth::find_transversals_and_orth_mates(const latinsquare_t square) {
+// Find all diagonal orthogonal mates for a given Latin square:
+LS_result DLX_orth::find_diag_orth_mates(const latinsquare_t square) {
 	const unsigned n = square.size();
 	assert(is_latinsquare(square));
+	// Find all transversals - just for statistics, the are not needed to form orthogonal diagonal mates:
+	vector<vector<int>> transversals = find_tv_dlx(square, false);
 	// Find all diagonal transversals:
 	vector<vector<int>> diag_transversals = find_tv_dlx(square, true);
-	// Find all transversals:
-	vector<vector<int>> transversals = find_tv_dlx(square, false);
 	DLX_column *root;
 	root = new (DLX_column);
 	vector<DLX_column*> elements;
@@ -422,7 +422,7 @@ LS_result DLX_orth::find_transversals_and_orth_mates(const latinsquare_t square)
 	ps.clear();
 	// Find disjoint sets of transversals:
 	vector<transversal_t> disjoint_transversals_sets;
-	find_all_transversals(0, *root, ps, disjoint_transversals_sets);
+	find_transversals(0, *root, ps, disjoint_transversals_sets);
 	for (int i = 0; i < disjoint_transversals_sets.size(); i++) {
 		sort(disjoint_transversals_sets[i].begin(), disjoint_transversals_sets[i].end());
 	}
@@ -443,6 +443,7 @@ LS_result DLX_orth::find_transversals_and_orth_mates(const latinsquare_t square)
 				}
 			}
 			assert(is_latinsquare(orth_square));
+			assert(is_diag_latinsquare(orth_square));
 			orth_mates.push_back(orth_square);
 		}
 

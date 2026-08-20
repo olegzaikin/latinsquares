@@ -30,7 +30,7 @@
 using namespace std;
 
 string program = "dlx_mols";
-string version = "0.2.6";
+string version = "0.2.7";
 
 struct Record_orth_char_result {
 	latinsquare_t square;
@@ -251,7 +251,7 @@ int main(int argc, char *argv[])
 	#pragma omp parallel for schedule(static, 1000)
 	for (auto &square : squares) {
 		if ((k % report_per_task == 0) && (k > 0)) cout << k << " squares processed" << endl;
-		LS_result ls_res = DLX_orth::find_transversals_and_orth_mates(square);
+		LS_result ls_res = DLX_orth::find_diag_orth_mates(square);
 		// Increase the loop-counter by all threads, but not at the same time:
 		#pragma omp critical
 		{
@@ -297,7 +297,7 @@ int main(int argc, char *argv[])
 			threads_results[thread_id].num_max_diag_transv++;
 		}
 		
-		// For all pairs of DLS which are orthogonal to the current square and form a triple:
+		// If at least two DLS are orthogonal to the current DLS, form all possible triples:
 		if (ls_res.orth_mates.size() < 2) continue;
 		for (unsigned j = 0; j < ls_res.orth_mates.size(); j++) {
 			assert(DLX_orth::is_diag_latinsquare(ls_res.orth_mates[j]));
