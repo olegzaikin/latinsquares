@@ -2,6 +2,8 @@
 #define DLX_ORTH_H
 
 #include <vector>
+#include <string>
+#include <set>
 #include <cassert>
 
 #define row_t vector<unsigned short int>
@@ -23,7 +25,7 @@ struct DLX_column {
 };
 
 struct LS_result {
-	vector<latinsquare_t> orth_mates;
+	vector<latinsquare_t> diag_orth_mates;
 	unsigned transv;
 	unsigned diag_transv;
 };
@@ -38,6 +40,10 @@ namespace DLX_orth {
 	vector<vector<int>> find_tv_dlx(const latinsquare_t square, const bool is_diag);
 	bool is_diag_latinsquare(const latinsquare_t square);
 	bool is_latinsquare(const latinsquare_t square);
+	unsigned calc_orth_char(const latinsquare_t dls1, const latinsquare_t dls2);
+	bool is_pseudotriple(const latinsquare_t square1, const latinsquare_t square2, 
+		const latinsquare_t square3, const unsigned n, const unsigned orth_char);
+	string square_to_str(const latinsquare_t square);
 	vector<latinsquare_t> find_orth_mates(const latinsquare_t square);
 	LS_result find_diag_orth_mates(const latinsquare_t square);
 };

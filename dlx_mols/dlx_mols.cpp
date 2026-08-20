@@ -25,15 +25,17 @@
 
 #include <omp.h>
 
-#define time_point_t std::chrono::time_point<std::chrono::system_clock>
-
 using namespace std;
 
+#define time_point_t chrono::time_point<chrono::system_clock>
+
 string program = "dlx_mols";
-string version = "0.2.7";
+string version = "0.2.8";
 
 struct Record_orth_char_result {
 	latinsquare_t square;
+	latinsquare_t orth_mate_1;
+	latinsquare_t orth_mate_2;
 	unsigned transv;
 	unsigned diag_transv;
 };
@@ -47,23 +49,11 @@ struct Thread_result {
 	unsigned num_max_diag_transv;
 };
 
-int strtoi(string s) {
-	assert(not s.empty());
-	int x = atoi(s.c_str());
-	return x;
-}
-
-string inttostr(int number) {
-	stringstream sstream;
-	sstream << number;
-	return sstream.str();
-}
-
 string current_time(const time_point_t &program_start) {
     stringstream sstream;
-    const time_point_t program_end = std::chrono::system_clock::now();
+    const time_point_t program_end = chrono::system_clock::now();
     sstream << "Elapsed : "
-    << std::chrono::duration_cast<std::chrono::seconds>(program_end - program_start).count()
+    << chrono::duration_cast<chrono::seconds>(program_end - program_start).count()
     << " seconds";
     return sstream.str();
 }
@@ -109,7 +99,7 @@ vector<latinsquare_t> read_squares(const string filename, const unsigned n){
 				row_t row;
 				for (unsigned j = 0; j < n; j++) {
 					string t_s = s.substr(2 * j, 1);
-					row.push_back(strtoi(t_s));
+					row.push_back(stoi(t_s));
 				}
 				cur_square.push_back(row);
 			}
@@ -132,7 +122,7 @@ vector<latinsquare_t> read_squares(const string filename, const unsigned n){
 					// One char to string:
 					string t_s(1, s[i*n + j]);
 					// String to int:
-					row.push_back(strtoi(t_s));
+					row.push_back(stoi(t_s));
 				}
 				assert(row.size() == n);
 				cur_square.push_back(row);
@@ -147,23 +137,8 @@ vector<latinsquare_t> read_squares(const string filename, const unsigned n){
 	return squares;
 }
 
-// Calculate the orhtogonality characteristics of a pair of Latin squares:
-unsigned calc_orth_char(const latinsquare_t dls1, const latinsquare_t dls2) {
-	unsigned orth_char = 0;
-	std::set<string> ordered_pairs;
-	size_t n = dls1.size();
-	for (int i=0; i<n; i++) {
-		for (int j=0; j<n; j++) {
-			stringstream sstream;
-			sstream << dls1[i][j] << dls2[i][j];
-			ordered_pairs.insert(sstream.str());
-		}
-	}
-	return ordered_pairs.size();
-}
-
 // Find substring after a given prefix:
-std::string str_after_prefix(const string str, const string prefix) {
+string str_after_prefix(const string str, const string prefix) {
     size_t pos = str.find( prefix );
     if ( pos != string::npos )
 		return str.substr( pos + prefix.length() );
@@ -215,7 +190,7 @@ int main(int argc, char *argv[])
 	omp_set_num_threads(cpu_num);
 	cout << cpu_num << " threads are used" << endl;
 
-	const time_point_t program_start = std::chrono::system_clock::now();
+	const time_point_t program_start = chrono::system_clock::now();
 
 	vector<latinsquare_t> squares = read_squares(filename, n);
 	cout << squares.size() << " Latin squares were read" << endl;
@@ -243,8 +218,6 @@ int main(int argc, char *argv[])
 
 	unsigned k = 0;
 	unsigned report_per_task = 10000;
-	vector<latinsquare_t> first_found_record_triple;
-	first_found_record_triple.resize(3);
 	if (cpu_num >= 10) report_per_task = 100000;
 	if (cpu_num >= 100) report_per_task = 1000000;
 	// There are plenty of simple tasks, so static distribution sounds here:
@@ -292,22 +265,26 @@ int main(int argc, char *argv[])
 				cout << "New maximum number of diagonal tranvsersals : " << diag_transv << endl;
 			}
 		}
-		// Increase the number of squares with the record transversals number:
+		// Increase the number of squares with the record diagonal transversals number:
 		if (diag_transv == threads_results[thread_id].max_diag_transv) {
 			threads_results[thread_id].num_max_diag_transv++;
 		}
 		
-		// If at least two DLS are orthogonal to the current DLS, form all possible triples:
-		if (ls_res.orth_mates.size() < 2) continue;
-		for (unsigned j = 0; j < ls_res.orth_mates.size(); j++) {
-			assert(DLX_orth::is_diag_latinsquare(ls_res.orth_mates[j]));
+		// Check whether all orhtogonal mates are DLS:
+		for (unsigned j = 0; j < ls_res.diag_orth_mates.size(); j++) {
+			assert(DLX_orth::is_diag_latinsquare(ls_res.diag_orth_mates[j]));
 		}
-		for (unsigned j = 0; j < ls_res.orth_mates.size() - 1; j++) {
-			for (unsigned j2 = j+1; j2 < ls_res.orth_mates.size(); j2++) {
-				unsigned orth_char = calc_orth_char(ls_res.orth_mates[j], ls_res.orth_mates[j2]);
+
+		// If 1 or 0 diagonal orthogonal mates, skip the current square:
+		if (ls_res.diag_orth_mates.size() < 2) continue;
+		// Otherwise, there are at least two diagonal orthogonal mates, so form all possible triples:
+		for (unsigned j = 0; j < ls_res.diag_orth_mates.size() - 1; j++) {
+			for (unsigned j2 = j+1; j2 < ls_res.diag_orth_mates.size(); j2++) {
+				unsigned orth_char = DLX_orth::calc_orth_char(ls_res.diag_orth_mates[j], ls_res.diag_orth_mates[j2]);
 				// Check if the thread-wise record is updated:
 				if (threads_results[thread_id].max_orth_char == 0 or orth_char > threads_results[thread_id].max_orth_char) {
 					threads_results[thread_id].max_orth_char = orth_char;
+					// Clear all previous results since orth char is updated:
 					threads_results[thread_id].record_orth_char_results.clear();
 					// If the global maximum orth char is updated:
 					#pragma omp critical
@@ -315,16 +292,14 @@ int main(int argc, char *argv[])
 						max_orth_char = orth_char;
 						cout << "Updated max_orth_char : " << max_orth_char << endl;
 						cout << current_time(program_start) << endl;
-						assert(first_found_record_triple.size() == 3);
-						first_found_record_triple[0] = square;
-						first_found_record_triple[1] = ls_res.orth_mates[j];
-						first_found_record_triple[2] = ls_res.orth_mates[j2];
 					}
 				}
 				// Save squares with the thread-wise record orth char:
 				if (orth_char == max_orth_char) {
 					Record_orth_char_result res;
 					res.square = square;
+					res.orth_mate_1 = ls_res.diag_orth_mates[j];
+					res.orth_mate_2 = ls_res.diag_orth_mates[j2];
 					res.transv = transv;
 					res.diag_transv = diag_transv;
 					threads_results[thread_id].record_orth_char_results.push_back(res);
@@ -337,15 +312,23 @@ int main(int argc, char *argv[])
 	// Collect record squares:
 	cout << "max_transv : " << max_transv << endl;
 	cout << "max_diag_transv : " << max_diag_transv << endl;
-	vector<Record_orth_char_result> record_squares;
+	vector<Record_orth_char_result> record_triples;
 	for (auto &x : threads_results) {
 		if (x.max_orth_char == max_orth_char) {
-			for (auto &y : x.record_orth_char_results) {
-				record_squares.push_back(y);
+			for (auto &res : x.record_orth_char_results) {
+				assert(DLX_orth::is_pseudotriple(res.square, res.orth_mate_1, res.orth_mate_2, n, max_orth_char));
+				record_triples.push_back(res);
 			}
 		}
 	}
-	cout << record_squares.size() << " squares with maximum orthogonal char " << max_orth_char << endl;
+	assert(record_triples.size() > 0);
+	vector<latinsquare_t> first_found_record_triple(3);
+	first_found_record_triple[0] = record_triples[0].square;
+	first_found_record_triple[1] = record_triples[0].orth_mate_1;
+	first_found_record_triple[2] = record_triples[0].orth_mate_2;
+	assert(DLX_orth::is_pseudotriple(first_found_record_triple[0], first_found_record_triple[1], first_found_record_triple[2], n, max_orth_char));
+
+	cout << record_triples.size() << " triples with maximum orthogonal char " << max_orth_char << endl;
 	// Print the first found record triple:
 	cout << "First found record triple :" << endl;
 	assert(first_found_record_triple.size() == 3);
@@ -358,25 +341,25 @@ int main(int argc, char *argv[])
 		}
 		cout << endl;
 	}
-	// Write the record squares to a file:
+	// Write the record triples to a file:
 	string base_filename = filename;
 	base_filename.erase(remove(base_filename.begin(), base_filename.end(), '.'), base_filename.end());
 	base_filename.erase(remove(base_filename.begin(), base_filename.end(), '/'), base_filename.end());
 	stringstream sstream;
 	sstream << "orth_char=" << max_orth_char << "_squares_order=" << n << "_" << base_filename;
 	string max_orth_char_squares_fname = sstream.str();
-	cout << "Writing " << record_squares.size() << 
-		" squares to file " << max_orth_char_squares_fname << endl;
+	cout << "Writing " << record_triples.size() << 
+		" triples to file " << max_orth_char_squares_fname << endl;
 	ofstream ofile(max_orth_char_squares_fname, ios_base::out);
-	ofile << "transv diag_transv square" << endl;
-	for (auto &res : record_squares) {
+	ofile << "transv diag_transv square orth_mate1 orth_mate2" << endl;
+	for (auto &res : record_triples) {
 		ofile << res.transv << " " << res.diag_transv << " ";
-		for (unsigned i = 0; i < res.square.size(); i++) {
-			assert(not res.square[i].empty());
-			for (unsigned j = 0; j < res.square[i].size(); j++) {
-				ofile << res.square[i][j];
-			}
-		}
+		assert(res.square.size() == n);
+		ofile << DLX_orth::square_to_str(res.square) << " ";
+		assert(res.orth_mate_1.size() == n);
+		ofile << DLX_orth::square_to_str(res.orth_mate_1) << " ";
+		assert(res.orth_mate_2.size() == n);
+		ofile << DLX_orth::square_to_str(res.orth_mate_2) << " ";
 		ofile << endl;
 	}
 	ofile.close();

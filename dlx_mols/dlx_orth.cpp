@@ -39,6 +39,41 @@ bool DLX_orth::is_diag_latinsquare(const latinsquare_t square) {
 	return true;
 }
 
+// Calculate the orhtogonality characteristics of a pair of Latin squares:
+unsigned DLX_orth::calc_orth_char(const latinsquare_t dls1, const latinsquare_t dls2) {
+	unsigned orth_char = 0;
+	set<string> ordered_pairs;
+	size_t n = dls1.size();
+	assert(n > 0);
+	for (int i=0; i<n; i++) {
+		for (int j=0; j<n; j++) {
+			ordered_pairs.insert(to_string(dls1[i][j]) + to_string(dls2[i][j]));
+		}
+	}
+	return ordered_pairs.size();
+}
+
+bool DLX_orth::is_pseudotriple(const latinsquare_t square1, const latinsquare_t square2, 
+		const latinsquare_t square3, const unsigned n, const unsigned orth_char) {
+	unsigned orth_char_1 = calc_orth_char(square1, square2);
+	unsigned orth_char_2 = calc_orth_char(square1, square3);
+	unsigned orth_char_3 = calc_orth_char(square2, square3);
+	if ((orth_char_1 == n*n and orth_char_2 == n*n) and orth_char_3 == orth_char) return true;
+	return false;
+}
+
+string DLX_orth::square_to_str(const latinsquare_t square) {
+	string res;
+	assert(square.size() > 0);
+	for (unsigned row_index=0; row_index < square.size(); row_index++) {
+		assert(square[row_index].size() == square.size());
+		for (unsigned j=0; j < square[row_index].size(); j++) {
+			res += to_string(square[row_index][j]);
+		}
+	}
+	return res;
+}
+
 void DLX_orth::cover(DLX_column *&c) {
 	//cout << "Covered " << c->column_number << endl;
 	c->Right->Left = c->Left;
@@ -431,7 +466,7 @@ LS_result DLX_orth::find_diag_orth_mates(const latinsquare_t square) {
 		delete elements[i];
 	}
 
-	vector<latinsquare_t> orth_mates;
+	vector<latinsquare_t> diag_orth_mates;
 	if (disjoint_transversals_sets.size() > 0) {
 		//out << disjoint_transversals_sets.size() << " sets of disjoint transversals" << endl;
 
@@ -444,12 +479,12 @@ LS_result DLX_orth::find_diag_orth_mates(const latinsquare_t square) {
 			}
 			assert(is_latinsquare(orth_square));
 			assert(is_diag_latinsquare(orth_square));
-			orth_mates.push_back(orth_square);
+			diag_orth_mates.push_back(orth_square);
 		}
 
 	}
 	LS_result ls_res;
-	ls_res.orth_mates = orth_mates;
+	ls_res.diag_orth_mates = diag_orth_mates;
 	ls_res.diag_transv = diag_transversals.size();
 	ls_res.transv = transversals.size();
 
