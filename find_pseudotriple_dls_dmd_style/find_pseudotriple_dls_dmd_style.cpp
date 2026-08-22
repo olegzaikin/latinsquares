@@ -26,11 +26,11 @@
 
 using namespace std;
 
-#define row_t vector<int>
+#define row_t vector<unsigned short int>
 #define matrix_t vector<row_t>
 
-string program = "enumerate_brown_dls";
-string version = "0.0.2";
+string program = "find_pseudotriple_dls_dmd_style";
+string version = "0.0.3";
 
 bool is_latin_rows(const row_t row0, const row_t row1) {
     const unsigned n = row0.size();
@@ -209,21 +209,6 @@ matrix_t normalize_main_diag(const matrix_t mtrx) {
     return norm_mtrx;
 }
 
-// Calculate the orhtogonality characteristics of a pair of Latin squares:
-unsigned calc_orth_char(const latinsquare_t dls1, const latinsquare_t dls2) {
-	unsigned orth_char = 0;
-	std::set<string> ordered_pairs;
-	size_t n = dls1.size();
-	for (int i=0; i<n; i++) {
-		for (int j=0; j<n; j++) {
-			stringstream sstream;
-			sstream << dls1[i][j] << dls2[i][j];
-			ordered_pairs.insert(sstream.str());
-		}
-	}
-	return ordered_pairs.size();
-}
-
 int main(int argc, char *argv[])
 {
     vector<string> argv_str;
@@ -325,8 +310,7 @@ int main(int argc, char *argv[])
 
 	//for (auto &norm_dls : normalized_dls_set) {
     for (auto &dls : dls_asc_first_row_arr) {
-		//vector<latinsquare_t> orth_mates = DLX_orth::find_all_orth_mates(norm_dls);
-        vector<latinsquare_t> orth_mates = DLX_orth::find_all_orth_mates(dls);
+        vector<latinsquare_t> orth_mates = DLX_orth::find_orth_mates(dls);
         k++;
         if (k % 1000 == 0) cout << k << " DLS processed" << endl;
         //if (k % 1000 == 0) cout << k << " normalized DLS processed" << endl;
@@ -338,14 +322,12 @@ int main(int argc, char *argv[])
 		if (orth_mates.size() < 2) continue;
 		for (unsigned j = 0; j < orth_mates.size() - 1; j++) {
 			for (unsigned j2 = j+1; j2 < orth_mates.size(); j2++) {
-				unsigned orth_char = calc_orth_char(orth_mates[j], orth_mates[j2]);
+				unsigned orth_char = DLX_orth::calc_orth_char(orth_mates[j], orth_mates[j2]);
 				//if (orth_char == max_orth_char) cout << orth_char << endl;
-                /*
                 if ( (orth_char == 74) and (dls[0] == row_ascending) ) {
                     max_orth_triples_num++;
                     cout << "max_orth_triples_num : " << max_orth_triples_num << endl;
                 }
-                */
 				if (max_orth_char == 0 or orth_char > max_orth_char) {
 					max_orth_char = orth_char;
 					cout << "Updated max_orth_char : " << max_orth_char << endl;
